@@ -6,7 +6,7 @@ if not _G.TeamSpeak then
 
 	-- TeamSpeak
 
-	_G.TeamSpeak = { Version = "1.0.0 alpha", Path = "TeamSpeak/lib/" }
+	_G.TeamSpeak = { Version = "1.0.1 alpha", Path = "TeamSpeak/lib/" }
 
 	dofile("TeamSpeak/Options.lua")
 

@@ -87,7 +87,7 @@ DWORD WINAPI Main(lua_State *L)
 	char buffer[BUFLEN];
 
 	char *ptr, *context;
-	const char *separator = "\n";
+	const char *separator = "\n\r";
 
 	const char *command = "clientnotifyregister schandlerid=0 event=any\n";
 
