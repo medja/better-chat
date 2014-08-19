@@ -38,7 +38,8 @@ SOCKET Connect(PCSTR hostname, PCSTR port)
 	}
 
 	SOCKET client = INVALID_SOCKET;
-	for (ptr = info; ptr != NULL; ptr = ptr->ai_next) {
+	for (ptr = info; ptr != NULL; ptr = ptr->ai_next)
+	{
 		client = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
 		if (client == INVALID_SOCKET)
 		{
@@ -69,11 +70,11 @@ SOCKET Connect(PCSTR hostname, PCSTR port)
 	return client;
 }
 
-HANDLE mutex = NULL;
 std::atomic<SOCKET> client = NULL;
 std::atomic<lua_State *> state = NULL;
 std::atomic<bool> running = true;
 Concurrency::concurrent_queue<char *> queue;
+Concurrency::concurrent_queue<char *> commands;
 
 void SendCommand(const char *buffer)
 {
@@ -81,7 +82,7 @@ void SendCommand(const char *buffer)
 	send(client, "\n", 1, 0);
 }
 
-DWORD WINAPI Main(lua_State *L)
+DWORD WINAPI Main(LPVOID param)
 {
 	int length;
 	char buffer[BUFLEN];
@@ -115,21 +116,16 @@ DWORD WINAPI Main(lua_State *L)
 		do
 		{
 			buffer[length = recv(client, buffer, BUFLEN, 0)] = 0;
-
-			WaitForSingleObject(mutex, INFINITE);
-			L = state;
-
 			ptr = strtok_s(buffer, separator, &context);
-			while (ptr != NULL && strlen(ptr) > 2)
+			while (ptr != NULL)
 			{
-				lua_getglobal(L, "TeamSpeak");
-				lua_getfield(L, lua_gettop(L), "OnReceive");
-				lua_pushlstring(L, ptr, strlen(ptr));
-				lua_pcall(L, 1, 0, 0);
+				length = strlen(ptr) + 1;
+				char *command = new char[length];
+				strcpy_s(command, length, ptr);
+				commands.push(command);
 				ptr = strtok_s(NULL, separator, &context);
 			}
 
-			ReleaseMutex(mutex);
 		} while (length > 0);
 
 		client = NULL;
@@ -147,6 +143,7 @@ int WriteToClient(lua_State *L)
 	const char *buffer = lua_tostring(L, 1);
 	if (client == NULL)
 	{
+		if (!running) return 0;
 		int length = strlen(buffer) + 1;
 		char *queued = new char[length];
 		strcpy_s(queued, length, buffer);
@@ -173,7 +170,7 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file)
 			if (state == NULL)
 			{
 				state = L;
-				mutex = CreateMutex(NULL, FALSE, NULL);
+				running = true;
 				CreateThread(NULL, 0, Main, NULL, 0, NULL);
 			}
 		}
@@ -182,10 +179,17 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file)
 
 void WINAPI OnGameTick(lua_State *L, LPCSTR type)
 {
-	if (L == state && strcmp(type, "update") == 0)
+	if (L == state && strcmp(type, "update") == 0 && !commands.empty())
 	{
-		ReleaseMutex(mutex);
-		WaitForSingleObject(mutex, INFINITE);
+		char *command;
+		while (commands.try_pop(command))
+		{
+			lua_getglobal(L, "TeamSpeak");
+			lua_getfield(L, lua_gettop(L), "OnReceive");
+			lua_pushlstring(L, command, strlen(command));
+			lua_pcall(L, 1, 0, 0);
+			delete[] command;
+		}
 	}
 }
 
@@ -201,10 +205,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
-		if (state != NULL) CloseHandle(mutex);
 		running = false;
 		break;
 	}
 	return TRUE;
 }
-
