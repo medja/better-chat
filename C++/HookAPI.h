@@ -4,14 +4,16 @@
 #define LUA_REGISTRYINDEX (-10000)
 #define LUA_ENVIRONINDEX (-10001)
 #define LUA_GLOBALSINDEX (-10002)
-#define lua_upvalueindex(i)   (LUA_GLOBALSINDEX-(i))
+#define lua_upvalueindex(i) (LUA_GLOBALSINDEX-(i))
 #define lua_pushcfunction(L, f)	lua_pushcclosure(L, f, 0)
-#define lua_tostring(L, i)		lua_tolstring(L, i, 0)
-#define lua_getglobal(L, f)		lua_getfield(L, LUA_GLOBALSINDEX, f)
-#define lua_setglobal(L, f)		lua_setfield(L, LUA_GLOBALSINDEX, f)
-#define luaL_register(L, i, b)	luaL_openlib(L, i, b, 0)
+#define lua_tostring(L, i) lua_tolstring(L, i, 0)
+#define lua_getglobal(L, f) lua_getfield(L, LUA_GLOBALSINDEX, f)
+#define lua_setglobal(L, f) lua_setfield(L, LUA_GLOBALSINDEX, f)
+#define luaL_register(L, i, b) luaL_openlib(L, i, b, 0)
+#define lua_pop(L, n) lua_settop(L, -(n)-1)
 
-enum LuaTypes {
+enum LuaTypes
+{
 	LUA_TNONE = -1,
 	LUA_TNIL,
 	LUA_TBOOLEAN,
@@ -40,14 +42,22 @@ enum HookCallbackType
 #ifndef WINAPI
 #define WINAPI __stdcall
 #endif
-
 typedef void lua_State;
 typedef lua_State* pLua_State;
 typedef int(*lua_CFunction) (lua_State *L);
 typedef const char*(*lua_Reader) (lua_State *L, void *data, size_t *size);
-typedef void(WINAPI* CallbackFunction)(lua_State*, LPCSTR);
+typedef int(*lua_Writer) (lua_State *L, const void* p, size_t sz, void* ud);
+typedef void(WINAPI* CallbackFunction)(lua_State*, LPCSTR, LPVOID);
+
+struct CallbackContainer
+{
+	CallbackFunction func;
+	LPVOID ptr;
+};
+
 #ifndef luaL_reg
-typedef struct luaL_Reg {
+typedef struct luaL_Reg
+{
 	const char *name;
 	lua_CFunction func;
 } luaL_Reg;
@@ -55,20 +65,15 @@ typedef struct luaL_Reg {
 #endif
 
 #ifndef PAYDAY2HOOK_EXPORTS
-
 #define EXPORT	extern "C"
 #pragma comment(lib, "PD2HookAPI.lib")
-
 #else
-
 #define EXPORT __declspec(dllexport) static
 #define ELc(x)	((decltype(HookAPI::##x##)*) LuaHooking::Lua[PD2Functions::##x##].lpAddr)
-
 class HookAPI
 {
-
 #endif
-	EXPORT void RegisterCallback(HookCallbackType, CallbackFunction);
+	EXPORT void RegisterCallback(HookCallbackType, CallbackFunction, LPVOID);
 	EXPORT int luaL_ref(lua_State *L, int t);
 	EXPORT void luaL_unref(lua_State *L, int t, int ref);
 	EXPORT void luaL_openlib(lua_State *L, const char *libname, const luaL_reg *l, int nup);
@@ -110,6 +115,7 @@ class HookAPI
 	EXPORT void lua_insert(lua_State *L, int idx);
 	EXPORT void lua_remove(lua_State *L, int idx);
 	EXPORT void lua_replace(lua_State *L, int idx);
+	EXPORT int lua_next(lua_State *L, int idx);
 	EXPORT void lua_setfield(lua_State *L, int idx, const char *k);
 	EXPORT void lua_getfield(lua_State *L, int idx, const char *k);
 	EXPORT int lua_gettop(lua_State *L);
@@ -120,10 +126,11 @@ class HookAPI
 	EXPORT void lua_rawset(lua_State *L, int idx);
 	EXPORT void lua_rawgeti(lua_State *L, int idx, int n);
 	EXPORT void lua_rawseti(lua_State *L, int idx, int n);
+	EXPORT int lua_dump(lua_State *L, lua_Writer w, void* data);
 #ifdef PAYDAY2HOOK_EXPORTS
 public:
-	static vector<CallbackFunction> NewStateCallbacks;
-	static vector<CallbackFunction> GameTickCallbacks;
-	static vector<CallbackFunction> RequireCallbacks;
+	static vector<CallbackContainer> NewStateCallbacks;
+	static vector<CallbackContainer> GameTickCallbacks;
+	static vector<CallbackContainer> RequireCallbacks;
 };
 #endif

@@ -72,7 +72,7 @@ SOCKET Connect(PCSTR hostname, PCSTR port)
 
 std::atomic<SOCKET> client = NULL;
 std::atomic<lua_State *> state = NULL;
-std::atomic<bool> running = true;
+std::atomic<bool> running = FALSE;
 Concurrency::concurrent_queue<char *> queue;
 Concurrency::concurrent_queue<char *> commands;
 
@@ -82,20 +82,29 @@ void SendCommand(const char *buffer)
 	send(client, "\n", 1, 0);
 }
 
+void QueueCommand(const char *buffer)
+{
+	int length = strlen(buffer) + 1;
+	char *queued = new char[length];
+	strcpy_s(queued, length, buffer);
+	queue.push(queued);
+}
+
 DWORD WINAPI Main(LPVOID param)
 {
 	int length;
 	char buffer[BUFLEN];
+	bool connected = FALSE;
 
 	char *ptr, *context;
 	const char *separator = "\n\r";
-
 	const char *command = "clientnotifyregister schandlerid=0 event=any\n";
 
 	while (running)
 	{
 		client = Connect("127.0.0.1", "25639");
 		if (client == NULL) continue;
+		if (!connected) running = connected = TRUE;
 
 		for (int header = 182; header > 0; header -= length)
 			length = recv(client, buffer, BUFLEN, 0);
@@ -119,10 +128,7 @@ DWORD WINAPI Main(LPVOID param)
 			ptr = strtok_s(buffer, separator, &context);
 			while (ptr != NULL)
 			{
-				length = strlen(ptr) + 1;
-				char *command = new char[length];
-				strcpy_s(command, length, ptr);
-				commands.push(command);
+				QueueCommand(ptr);
 				ptr = strtok_s(NULL, separator, &context);
 			}
 
@@ -142,18 +148,13 @@ int WriteToClient(lua_State *L)
 	if (lua_type(L, 1) == -1) return 0;
 	const char *buffer = lua_tostring(L, 1);
 	if (client == NULL)
-	{
 		if (!running) return 0;
-		int length = strlen(buffer) + 1;
-		char *queued = new char[length];
-		strcpy_s(queued, length, buffer);
-		queue.push(queued);
-	}
+		else QueueCommand(buffer);
 	else SendCommand(buffer);
 	return 0;
 }
 
-void WINAPI OnRequire(lua_State *L, LPCSTR file)
+void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 {
 	if (strcmp(file, "lib/managers/chatmanager") == 0)
 	{
@@ -170,22 +171,22 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file)
 			if (state == NULL)
 			{
 				state = L;
-				running = true;
 				CreateThread(NULL, 0, Main, NULL, 0, NULL);
 			}
 		}
 	}
 }
 
-void WINAPI OnGameTick(lua_State *L, LPCSTR type)
+void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 {
 	if (L == state && strcmp(type, "update") == 0 && !commands.empty())
 	{
 		char *command;
+		lua_getglobal(L, "TeamSpeak");
+		int index = lua_gettop(L);
 		while (commands.try_pop(command))
 		{
-			lua_getglobal(L, "TeamSpeak");
-			lua_getfield(L, lua_gettop(L), "OnReceive");
+			lua_getfield(L, index, "OnReceive");
 			lua_pushlstring(L, command, strlen(command));
 			lua_pcall(L, 1, 0, 0);
 			delete[] command;
@@ -198,14 +199,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	switch (ul_reason_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
-		RegisterCallback(REQUIRE_CALLBACK, &OnRequire);
-		RegisterCallback(GAMETICK_CALLBACK, &OnGameTick);
-		break;
+		RegisterCallback(REQUIRE_CALLBACK, &OnRequire, NULL);
+		RegisterCallback(GAMETICK_CALLBACK, &OnGameTick, NULL);
 	case DLL_THREAD_ATTACH:
 	case DLL_THREAD_DETACH:
 		break;
 	case DLL_PROCESS_DETACH:
-		running = false;
+		running = FALSE;
 		break;
 	}
 	return TRUE;
