@@ -19,6 +19,11 @@
 
 #define BUFLEN 4096
 
+std::atomic<SOCKET> client = NULL;
+std::atomic<lua_State *> state = NULL;
+std::atomic<bool> running = FALSE;
+Concurrency::concurrent_queue<char *> queue;
+
 SOCKET Connect(PCSTR hostname, PCSTR port)
 {
 	WSADATA wsaData;
@@ -70,41 +75,19 @@ SOCKET Connect(PCSTR hostname, PCSTR port)
 	return client;
 }
 
-std::atomic<SOCKET> client = NULL;
-std::atomic<lua_State *> state = NULL;
-std::atomic<bool> running = FALSE;
-Concurrency::concurrent_queue<char *> queue;
-Concurrency::concurrent_queue<char *> commands;
-
-void SendCommand(const char *buffer)
-{
-	send(client, buffer, strlen(buffer), 0);
-	send(client, "\n", 1, 0);
-}
-
-void QueueCommand(const char *buffer)
-{
-	int length = strlen(buffer) + 1;
-	char *queued = new char[length];
-	strcpy_s(queued, length, buffer);
-	queue.push(queued);
-}
 
 DWORD WINAPI Main(LPVOID param)
 {
 	int length;
 	char buffer[BUFLEN];
-	bool connected = FALSE;
-
 	char *ptr, *context;
 	const char *separator = "\n\r";
 	const char *command = "clientnotifyregister schandlerid=0 event=any\n";
 
-	while (running)
+	for (running = true; running; )
 	{
 		client = Connect("127.0.0.1", "25639");
 		if (client == NULL) continue;
-		if (!connected) running = connected = TRUE;
 
 		for (int header = 182; header > 0; header -= length)
 			length = recv(client, buffer, BUFLEN, 0);
@@ -112,45 +95,35 @@ DWORD WINAPI Main(LPVOID param)
 		send(client, command, strlen(command), 0);
 		recv(client, buffer, BUFLEN, 0);
 
-		if (!queue.empty())
-		{
-			char *queued;
-			while (queue.try_pop(queued))
-			{
-				SendCommand(queued);
-				delete[] queued;
-			}
-		}
-
 		do
 		{
 			buffer[length = recv(client, buffer, BUFLEN, 0)] = 0;
 			ptr = strtok_s(buffer, separator, &context);
 			while (ptr != NULL)
 			{
-				QueueCommand(ptr);
+				int length = strlen(ptr) + 1;
+				char *queued = new char[length];
+				strcpy_s(queued, length, ptr);
+				queue.push(queued);
 				ptr = strtok_s(NULL, separator, &context);
 			}
 
-		} while (length > 0);
+		} while (length > 0 && running);
 
 		client = NULL;
+		closesocket(client);
+		WSACleanup();
 	}
-
-	closesocket(client);
-	WSACleanup();
 
 	return 0;
 }
 
-int WriteToClient(lua_State *L)
+int SendCommand(lua_State *L)
 {
-	if (lua_type(L, 1) == -1) return 0;
+	if (client == NULL || lua_type(L, 1) == -1) return 0;
 	const char *buffer = lua_tostring(L, 1);
-	if (client == NULL)
-		if (!running) return 0;
-		else QueueCommand(buffer);
-	else SendCommand(buffer);
+	send(client, buffer, strlen(buffer), 0);
+	send(client, "\n", 1, 0);
 	return 0;
 }
 
@@ -165,7 +138,7 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 			lua_getglobal(L, "TeamSpeak");
 			int index = lua_gettop(L);
 
-			lua_pushcfunction(L, &WriteToClient);
+			lua_pushcfunction(L, &SendCommand);
 			lua_setfield(L, index, "Send");
 
 			if (state == NULL)
@@ -179,17 +152,19 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 
 void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 {
-	if (L == state && strcmp(type, "update") == 0 && !commands.empty())
+	if (L == state && strcmp(type, "update") == 0 && !queue.empty())
 	{
-		char *command;
+		char *message;
+
 		lua_getglobal(L, "TeamSpeak");
 		int index = lua_gettop(L);
-		while (commands.try_pop(command))
+
+		while (queue.try_pop(message))
 		{
 			lua_getfield(L, index, "OnReceive");
-			lua_pushlstring(L, command, strlen(command));
+			lua_pushlstring(L, message, strlen(message));
 			lua_pcall(L, 1, 0, 0);
-			delete[] command;
+			delete[] message;
 		}
 	}
 }
