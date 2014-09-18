@@ -125,7 +125,7 @@ DWORD WINAPI Main(LPVOID param)
 
 		} while (length > 0 && running);
 
-		// Once the connection is closed cleans up all of it's resources
+		// Once the connection is closed cleans up all of its resources
 		client = NULL;
 		closesocket(client);
 		WSACleanup();
