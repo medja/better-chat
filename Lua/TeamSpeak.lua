@@ -62,6 +62,9 @@ if not _G.TeamSpeak then
 		if command == "msg" or command == "ts" then
 			TeamSpeak.Send("sendtextmessage targetmode=2 msg=" .. TeamSpeak.escape(message))
 			return false
+		elseif command == "mute" then
+			io.write("[TS][WIP] Muted " .. message .. "\n")
+			return false
 		end
 	end)
 
