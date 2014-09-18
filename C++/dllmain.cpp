@@ -1,21 +1,13 @@
-#include "stdafx.h"
-#include <iostream>
-#include "HookAPI.h"
-
 #define WIN32_LEAN_AND_MEAN
 
+#include <SDKDDKVer.h>
 #include <windows.h>
-#include <winsock2.h>
+#include "HookAPI.h"
 #include <ws2tcpip.h>
-#include <stdlib.h>
-#include <stdio.h>
-
-#pragma comment (lib, "Ws2_32.lib")
-#pragma comment (lib, "Mswsock.lib")
-#pragma comment (lib, "AdvApi32.lib")
-
 #include <atomic>
 #include <concurrent_queue.h>
+
+#pragma comment (lib, "Ws2_32.lib")
 
 #define BUFLEN 4096
 
