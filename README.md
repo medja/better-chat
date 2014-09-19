@@ -1,4 +1,4 @@
-# TeamSpeak 2 MOD for Payday 2
+# TeamSpeak 3 MOD for Payday 2
 
 Features:
 
