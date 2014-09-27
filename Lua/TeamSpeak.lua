@@ -19,8 +19,8 @@ if not _G.TeamSpeak then
 	end
 
 	function TeamSpeak.OnReceive(body)
-		io.write("[TS] " .. body .. "\n")
 		local command = body:match("^([^ ]+)");
+		io.write("[TS] " .. command .. "\n")
 		if command == "notifytextmessage" then
 			local channel = TeamSpeak.param("targetmode", body)
 			local sender = TeamSpeak.param("invokername", body)
