@@ -1,6 +1,7 @@
 _G.TeamSpeak.Options = {
 	Colors = {
-		global = Color("FFD400"),
-		channel = Color("FFFFFF")
-	}
+		Global = Color("FFD400"),
+		Channel = Color("FFFFFF")
+	},
+	FixChatLag = true
 }

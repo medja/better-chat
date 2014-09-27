@@ -57,7 +57,7 @@ if not _G.TeamSpeak then
 
 	TeamSpeak.Hooks:Add("ChatManagerOnSendMessage", function(channel, sender, message)
 		local command = message:match("^/([^ ]+)")
-		if command == nil then return nil end
+		if command == nil then return end
 		message = message:sub(command:len() + 3)
 		if command == "msg" or command == "ts" then
 			TeamSpeak.Send("sendtextmessage targetmode=2 msg=" .. TeamSpeak.escape(message))
@@ -69,10 +69,18 @@ if not _G.TeamSpeak then
 	end)
 
 	TeamSpeak.Hooks:Add("TeamSpeakOnReceiveMessage", function(channel, sender, message)
-		local color = TeamSpeak.Options.Colors.channel
-		if channel == TeamSpeak.Channels.GLOBAL then color = TeamSpeak.Options.Colors.global end
+		local color = TeamSpeak.Options.Colors.Channel
+		if channel == TeamSpeak.Channels.GLOBAL then color = TeamSpeak.Options.Colors.Global end
 		TeamSpeak.ShowMessage(sender, message, color)
 	end)
+
+	if TeamSpeak.Options.FixChatLag then
+		local last_messages = {}
+		TeamSpeak.Hooks:Add("ChatManagerOnReceiveMessage", function(channel, name, message, color, icon)
+			if last_messages[name] and last_messages[name] == message then return false end
+			 last_messages[name] = message
+		end)
+	end
 
 	-- Helpers
 
