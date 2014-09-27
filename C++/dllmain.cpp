@@ -126,9 +126,12 @@ DWORD WINAPI Main(LPVOID param)
 		} while (length > 0 && running);
 
 		// Once the connection is closed cleans up all of its resources
-		client = NULL;
-		closesocket(client);
-		WSACleanup();
+		{
+			SOCKET socket = client;
+			client = NULL;
+			closesocket(socket);
+			WSACleanup();
+		}
 	}
 
 	return 0;
@@ -170,12 +173,9 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 			lua_pushcfunction(L, &SendCommand);
 			lua_setfield(L, index, "Send");
 
-			// Creates the network thread and saves the current Lua state
-			if (state == NULL)
-			{
-				state = L;
-				CreateThread(NULL, 0, Main, NULL, 0, NULL);
-			}
+			// Saves the current Lua state and creates the network thread 
+			state = L;
+			if (!running) CreateThread(NULL, 0, Main, NULL, 0, NULL);
 		}
 	}
 }
