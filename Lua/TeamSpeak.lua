@@ -77,8 +77,14 @@ if not _G.TeamSpeak then
 	if TeamSpeak.Options.FixChatLag then
 		local last_messages = {}
 		TeamSpeak.Hooks:Add("ChatManagerOnReceiveMessage", function(channel, name, message, color, icon)
-			if last_messages[name] and last_messages[name] == message then return false end
-			 last_messages[name] = message
+			if last_messages[name] and last_messages[name].message == message then
+				local time = os.clock()
+				local interval = time - last_messages[name].time
+				last_messages[name].time = time
+				if interval < 10 then return false end
+			else
+				last_messages[name] = { message = message, time = os.clock() }
+			end
 		end)
 	end
 
