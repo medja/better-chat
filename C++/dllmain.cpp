@@ -9,6 +9,7 @@
 
 #pragma comment (lib, "Ws2_32.lib")
 
+// Default buffer length
 #define BUFLEN 4096
 
 // Socket used for TeamSpeak communication
@@ -92,7 +93,7 @@ DWORD WINAPI Main(LPVOID param)
 	const char *command = "clientnotifyregister schandlerid=0 event=any\n";
 
 	// Starts the network loop
-	for (running = true; running; )
+	for (running = true; running;)
 	{
 		// Connects to the local TeamSpeak ClientQuery and retries on failure
 		client = Connect("127.0.0.1", "25639");
@@ -102,7 +103,7 @@ DWORD WINAPI Main(LPVOID param)
 		for (int header = 182; header > 0; header -= length)
 			length = recv(client, buffer, BUFLEN, 0);
 
-		// Sends a "listen to all events" command and receives it's response
+		// Sends a "listen to all events" command and receives its response
 		send(client, command, strlen(command), 0);
 		recv(client, buffer, BUFLEN, 0);
 
@@ -137,7 +138,7 @@ DWORD WINAPI Main(LPVOID param)
 	return 0;
 }
 
-// Called by the Lua script
+// Called by the Lua script when a TeamSpeak command is used
 // Sends a message using the ClientQuery socket
 
 int SendCommand(lua_State *L)
@@ -169,7 +170,7 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 			lua_getglobal(L, "TeamSpeak");
 			int index = lua_gettop(L);
 
-			// Creates a function called Send that maps to a C++ function
+			// Maps C++ functions to Lua variables inside the TeamSpeak object
 			lua_pushcfunction(L, &SendCommand);
 			lua_setfield(L, index, "Send");
 
