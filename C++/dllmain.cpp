@@ -6,6 +6,7 @@
 #include "TeamSpeak.h"
 #include <ws2tcpip.h>
 #include <atomic>
+#include <list>
 #include <concurrent_queue.h>
 
 #pragma comment (lib, "Ws2_32.lib")
@@ -21,6 +22,10 @@ std::atomic<lua_State *> state = NULL;
 std::atomic<bool> running = FALSE;
 // Queue of commands to be sent to the Lua script
 Concurrency::concurrent_queue<String *> queue;
+// Chat message history and its length and status
+std::list<ChatMessage *> history;
+unsigned int max_history = 20;
+bool loading_history = false;
 
 // Tries to connect to TeamSpeak using ClientQuery
 // Returns a new socket or NULL on failure
@@ -151,6 +156,67 @@ int SendCommand(lua_State *L)
 	return 0;
 }
 
+// Called by the Lua script when a new message is received
+// Saves a message to chat history
+
+int SaveChatMessage(lua_State *L)
+{
+	// Stops if chat history is disabled or being loaded
+	if (loading_history || max_history < 1) return 0;
+
+	// Creates a new message
+	ChatMessage *message = new ChatMessage();
+	message->sender = String(lua_tostring(L, 1));
+	message->message = String(lua_tostring(L, 2));
+	// Saves the Color userdata directly
+	message->color = *(Color *)lua_touserdata(L, 3);
+	message->icon = String(lua_tostring(L, 4));
+
+	// Inserts the message at the end of the chat history
+	history.push_back(message);
+	// Removes the first few messages if the limit has been reached
+	while (history.size() > max_history)
+	{
+		delete history.front();
+		history.pop_front();
+	}
+
+	return 0;
+}
+
+// Called by the Lua script once the chat GUI loads
+// Loads all messages from chat histor into the game
+
+int LoadChatMessages(lua_State *L)
+{
+	// Stops if there is no chat history
+	if (max_history < 1 || history.empty()) return 0;
+	loading_history = true;
+
+	// Indexes the global TeamSpeak variable
+	ChatMessage *message;
+	lua_getglobal(L, "TeamSpeak");
+	int index = lua_gettop(L);
+	
+	// And loads each message inside the chat history
+	for (auto i = history.begin(); i != history.end(); i++)
+	{
+		message = *i;
+		lua_getfield(L, index, "ShowMessage");
+		lua_pushlstring(L, message->sender.value(), message->sender.length());
+		lua_pushlstring(L, message->message.value(), message->message.length());
+		// Recreates and pushes the userdata
+		message->color.push(L);
+		// Sets an icon if required
+		if (message->icon.value() == NULL) lua_pushnil(L);
+		else lua_pushlstring(L, message->icon.value(), message->icon.length());
+		lua_pcall(L, 4, 0, 0);
+	}
+
+	loading_history = false;
+	return 0;
+}
+
 // Requires the TeamSpeak Lua script and loads it into the game
 
 void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
@@ -168,10 +234,30 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 			lua_getglobal(L, "TeamSpeak");
 			int index = lua_gettop(L);
 
+			// Check the chat history option
+			lua_getfield(L, index, "Options");
+			lua_getfield(L, -1, "ChatHistory");
+			max_history = (unsigned int)lua_tonumber(L, -1);
+
 			// Maps C++ functions to Lua variables inside the TeamSpeak object
 			lua_pushcfunction(L, &SendCommand);
 			lua_setfield(L, index, "Send");
+			lua_pushcfunction(L, &SaveChatMessage);
+			lua_setfield(L, index, "SaveChatMessage");
+			lua_pushcfunction(L, &LoadChatMessages);
+			lua_setfield(L, index, "LoadChatMessages");
 
+			// Register a Lua hook if chat history is enabled
+			if (max_history > 0)
+			{
+				lua_getfield(L, index, "Hooks");
+				lua_getfield(L, -1, "Add");
+				lua_pushvalue(L, -2);
+				lua_pushstring(L, "ChatManagerOnLoad");
+				lua_pushcfunction(L, LoadChatMessages);
+				lua_pcall(L, 3, 0, 0);
+			}
+			
 			// Saves the current Lua state and creates the network thread 
 			state = L;
 			if (!running) CreateThread(NULL, 0, Main, NULL, 0, NULL);

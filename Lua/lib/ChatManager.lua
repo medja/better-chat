@@ -1,3 +1,9 @@
+local init = ChatGui.init
+function ChatGui:init(ws)
+	init(self, ws)
+	TeamSpeak.Hooks:Call("ChatManagerOnLoad")
+end
+
 local send_message = ChatManager.send_message
 function ChatManager:send_message(channel, sender, message)
 	local args = TeamSpeak.Hooks:Call("ChatManagerOnSendMessage", channel, sender, message)

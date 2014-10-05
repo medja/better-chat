@@ -3,5 +3,6 @@ _G.TeamSpeak.Options = {
 		Global = Color("FFD400"),
 		Channel = Color("FFFFFF")
 	},
-	FixChatLag = true
+	FixChatLag = true,
+	ChatHistory = 20
 }

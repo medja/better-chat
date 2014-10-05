@@ -6,16 +6,27 @@ if not _G.TeamSpeak then
 
 	-- TeamSpeak
 
-	_G.TeamSpeak = { Version = "1.0.3 beta", Path = "TeamSpeak/lib/" }
-
-	dofile("TeamSpeak/Options.lua")
+	_G.TeamSpeak = { Version = "1.0.4 beta", Path = "TeamSpeak/lib/" }
 
 	TeamSpeak.Channels = { GLOBAL = "3", CHANNEL = "2", PRIVATE = "1" }
 
+	-- Parse Options
+
+	dofile("TeamSpeak/Options.lua")
+
+	if TeamSpeak.Options.ChatHistory == true then
+		TeamSpeak.Options.ChatHistory = 20
+	else
+		TeamSpeak.Options.ChatHistory = tonumber(TeamSpeak.Options.ChatHistory)
+		if TeamSpeak.Options.ChatHistory == nil or TeamSpeak.Options.ChatHistory < 1 then
+			TeamSpeak.Options.ChatHistory = 0
+		end
+	end
+
 	-- Internals
 
-	function TeamSpeak.ShowMessage(sender, message, color)
-		managers.chat:_receive_message(ChatManager.GAME, sender, message, color)
+	function TeamSpeak.ShowMessage(sender, message, color, icon)
+		managers.chat:_receive_message(ChatManager.GAME, sender, message, color, icon)
 	end
 
 	function TeamSpeak.OnReceive(body)
@@ -55,6 +66,14 @@ if not _G.TeamSpeak then
 
 	-- Logic
 
+	TeamSpeak.Hooks:Add("ChatManagerOnLoad", function()
+		TeamSpeak.Hooks:Add("ChatManagerOnReceiveMessage", function(channel, name, message, color, icon)
+			if channel == ChatManager.GAME then
+				TeamSpeak.SaveChatMessage(name, message, color, icon)
+			end
+		end)
+	end)
+
 	TeamSpeak.Hooks:Add("ChatManagerOnSendMessage", function(channel, sender, message)
 		local command = message:match("^/([^ ]+)")
 		if command == nil then return end
@@ -76,14 +95,14 @@ if not _G.TeamSpeak then
 
 	if TeamSpeak.Options.FixChatLag then
 		local last_messages = {}
-		TeamSpeak.Hooks:Add("ChatManagerOnReceiveMessage", function(channel, name, message, color, icon)
-			if last_messages[name] and last_messages[name].message == message then
+		TeamSpeak.Hooks:Add("ChatManagerOnReceiveMessage", function(channel, sender, message, color, icon)
+			if last_messages[sender] and last_messages[sender].message == message then
 				local time = os.clock()
-				local interval = time - last_messages[name].time
-				last_messages[name].time = time
+				local interval = time - last_messages[sender].time
+				last_messages[sender].time = time
 				if interval < 10 then return false end
 			else
-				last_messages[name] = { message = message, time = os.clock() }
+				last_messages[sender] = { message = message, time = os.clock() }
 			end
 		end)
 	end
