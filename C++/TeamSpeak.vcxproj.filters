@@ -18,6 +18,9 @@
     <ClInclude Include="HookAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TeamSpeak.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">

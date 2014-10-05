@@ -3,6 +3,7 @@
 #include <SDKDDKVer.h>
 #include <windows.h>
 #include "HookAPI.h"
+#include "TeamSpeak.h"
 #include <ws2tcpip.h>
 #include <atomic>
 #include <concurrent_queue.h>
@@ -19,7 +20,7 @@ std::atomic<lua_State *> state = NULL;
 // Boolean telling the socket thread whether to keep the network loop running
 std::atomic<bool> running = FALSE;
 // Queue of commands to be sent to the Lua script
-Concurrency::concurrent_queue<char *> queue;
+Concurrency::concurrent_queue<String *> queue;
 
 // Tries to connect to TeamSpeak using ClientQuery
 // Returns a new socket or NULL on failure
@@ -117,10 +118,7 @@ DWORD WINAPI Main(LPVOID param)
 			while (ptr != NULL)
 			{
 				// Copies the messages to heap memory and saves them to a queue
-				int length = strlen(ptr) + 1;
-				char *queued = new char[length];
-				strcpy_s(queued, length, ptr);
-				queue.push(queued);
+				queue.push(new String(ptr));
 				ptr = strtok_s(NULL, separator, &context);
 			}
 
@@ -189,19 +187,17 @@ void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 	// the tick type is an update tick and out message queue is not empty
 	if (L == state && strcmp(type, "update") == 0 && !queue.empty())
 	{
-		char *message;
-
 		// Indexes the global TeamSpeak variable
 		lua_getglobal(L, "TeamSpeak");
 		int index = lua_gettop(L);
 
 		// And sends each message over to a Lua function
-		while (queue.try_pop(message))
+		for (String *message; queue.try_pop(message);)
 		{
 			lua_getfield(L, index, "OnReceive");
-			lua_pushlstring(L, message, strlen(message));
+			lua_pushlstring(L, message->value(), message->length());
 			lua_pcall(L, 1, 0, 0);
-			delete[] message;
+			delete message;
 		}
 	}
 }
