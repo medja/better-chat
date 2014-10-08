@@ -139,46 +139,91 @@ if not _G.TeamSpeak then
 		end)
 	end
 
+	-- Autocomplete matches and current index
+	local autocomplete_index = 0
+	local autocomplete_matches = nil
+
+	-- Handles keypresses inside the chat
 	TeamSpeak.Hooks:Add("ChatManagerKeyPress", function(key, chat)
+		-- Fire autocompletion if tab is pressed
 		if key == Idstring("tab") then
+			-- Gets the input field, selection start and text
 			local panel = chat._input_panel:child("input_text")
 			local i, text = panel:selection(), panel:text()
-			local offset = text:sub(i + 1):match("^%S*")
-			local input = (text:sub(0, i) .. offset):lower()
-			local players = {}
-			for _, player in ipairs(managers.network:game():all_members()) do
-				table.insert(players, player:peer():name())
-			end
-			local best, best_match
-			while input:len() > 0 do
-				for _, player in ipairs(players) do
-					local match = player:lower():find(input, 0, true)
-					if match ~= nil then
-						if best_match == nil or best_match < match then
-							best = player
-							best_match = match
+			-- Either autocomplete the input or switch between previous results
+			if autocomplete_matches == nil then
+				-- Get the part of the word right of the cursor
+				local offset = text:sub(i + 1):match("^%S*")
+				-- Join the text before the cursor and word after it together
+				local input = (text:sub(0, i) .. offset):lower()
+				-- Store all player names inside a table
+				local players = {}
+				for _, player in ipairs(managers.network:game():all_members()) do
+					table.insert(players, player:peer():name())
+				end
+				-- Match player names with the input
+				local matches = {}
+				while input:len() > 0 do
+					for _, player in ipairs(players) do
+						-- If the player name contains the input add it to the list
+						local match = player:lower():find(input, 0, true)
+						if match ~= nil then
+							table.insert(matches, { match, player })
 						end
 					end
+					if #matches > 0 then break end
+					-- If no match was found shorten the input by removing the front word
+					input = input:sub((input:find("%s") or input:len()) + 1)
 				end
-				if best ~= nil then break end
-				input = input:sub((input:find("%s") or input:len()) + 1)
-			end
-			if best ~= nil then
-				local input_length = input:len()
-				local after_length = offset:len()
-				local before_length = input_length - after_length
-				local best_length = best:len()
-				local after = text:sub(i + after_length + 1):lower()
-				local match = best:sub(input_length + 1):lower()
-				for i = 0, math.min(after:len(), match:len()) do
-					if after:sub(i, i) ~= match:sub(i, i) then break end
-					after_length = after_length + 1
+				if #matches > 0 then
+					-- If a match is found sort the matches and save them for later
+					table.sort(matches, function(a, b)
+						-- Use the match index inside the player name for sorting
+						return a[1] < b[1]
+					end)
+					autocomplete_matches = matches
+					-- Set the match index to the best / first one
+					autocomplete_index = 1
+					local best = matches[1][2]
+					-- Get the different string lengths used to split up the original text
+					local input_length = input:len()
+					local after_length = offset:len()
+					local before_length = input_length - after_length
+					local best_length = best:len()
+					-- Check if any character after the cursor matches the ending of the player name
+					local after = text:sub(i + after_length + 1):lower()
+					local match = best:sub(input_length + 1):lower()
+					for i = 0, math.min(after:len(), match:len()) do
+						if after:sub(i, i) ~= match:sub(i, i) then break end
+						-- And make sure they get trimmed off
+						after_length = after_length + 1
+					end
+					-- Replace the matched text with the player name
+					panel:set_text(text:sub(0, i - before_length) .. best .. text:sub(i + after_length))
+					-- And set the cursor's position respectively
+					local selection = i - before_length + best_length
+					panel:set_selection(selection, selection)
+					chat:update_caret()
 				end
-				panel:set_text(text:sub(0, i - before_length) .. best .. text:sub(i + after_length))
-				local selection = i - before_length + best_length
+			else
+				-- Get the current player name length
+				local length = autocomplete_matches[autocomplete_index][2]:len()
+				-- Find the next match index looping back to 1 if needed
+				if autocomplete_index == #autocomplete_matches then
+					autocomplete_index = 1
+				else
+					autocomplete_index = autocomplete_index + 1
+				end
+				-- Replace the previous match with the new one
+				local match = autocomplete_matches[autocomplete_index][2]
+				panel:set_text(text:sub(0, i - length) .. match .. text:sub(i + 1))
+				-- And set the cursor's position respectively
+				local selection = i - length + match:len()
 				panel:set_selection(selection, selection)
 				chat:update_caret()
 			end
+		else
+			autocomplete_matches = nil
 		end
 	end)
 
