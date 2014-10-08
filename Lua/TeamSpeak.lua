@@ -38,7 +38,7 @@ if not _G.TeamSpeak then
 	-- Calls hooks for each implemented event
 
 	function TeamSpeak.OnReceive(body)
-		local command = body:match("^([^ ]+)");
+		local command = body:match("^(%S+)");
 		io.write("[TS] " .. command .. "\n")
 		if command == "notifytextmessage" then
 			local channel = TeamSpeak.param("targetmode", body)
@@ -71,7 +71,7 @@ if not _G.TeamSpeak then
 	function TeamSpeak.Hooks:Call(key, ...)
 		-- Stores the passed arguments and uses them when calling hooks
 		local args, vals = {...}
-		for _, func in pairs(self[key] or {}) do
+		for _, func in ipairs(self[key] or {}) do
 			vals = {func(unpack(args))}
 			-- Returning false will prevent additional hooks from being called
 			if vals[1] == false then return nil end
@@ -97,12 +97,12 @@ if not _G.TeamSpeak then
 	-- Every time a message is about to be sent from the client
 	TeamSpeak.Hooks:Add("ChatManagerOnSendMessage", function(channel, sender, message)
 		-- Checks for a command inside the message
-		local command = message:match("^/([^ ]+)")
+		local command = message:match("^/(%S+)")
 		if command == nil then return end
 		-- Removes the command from the message
 		message = message:sub(command:len() + 3)
 		if command == "msg" or command == "ts" then
-			-- Handles: /ms <message> | /ts <message>
+			-- Handles: /msg <message> | /ts <message>
 			-- Sends a message via the current TeamSpeak channel
 			TeamSpeak.Send("sendtextmessage targetmode=2 msg=" .. TeamSpeak.escape(message))
 			return false
@@ -146,12 +146,12 @@ if not _G.TeamSpeak then
 			local offset = text:sub(i + 1):match("^%S*")
 			local input = (text:sub(0, i) .. offset):lower()
 			local players = {}
-			for _, player in pairs(managers.network:game():all_members()) do
+			for _, player in ipairs(managers.network:game():all_members()) do
 				table.insert(players, player:peer():name())
 			end
 			local best, best_match
 			while input:len() > 0 do
-				for _, player in pairs(players) do
+				for _, player in ipairs(players) do
 					local match = player:lower():find(input, 0, true)
 					if match ~= nil then
 						if best_match == nil or best_match < match then
@@ -186,7 +186,7 @@ if not _G.TeamSpeak then
 
 	-- Finds a parameter inside the string and unescapes it
 	function TeamSpeak.param(name, body)
-		return TeamSpeak.unescape(body:match(name .. "=([^ ]+)"))
+		return TeamSpeak.unescape(body:match(name .. "=(%S+)"))
 	end
 
 	-- Character pairs used for escaping and unescaping TeamSpeak ClienQuery strings
@@ -220,7 +220,7 @@ do
 			return
 		end
 		-- Or multiple of them if a table is used instead of a script name
-		for _, script in pairs(requiredScripts[RequiredScript]) do
+		for _, script in ipairs(requiredScripts[RequiredScript]) do
 			dofile(TeamSpeak.Path .. script)
 		end
 	end
