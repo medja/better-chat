@@ -4,6 +4,14 @@ function ChatGui:init(ws)
 	TeamSpeak.Hooks:Call("ChatManagerOnLoad")
 end
 
+local key_press = ChatGui.key_press
+function ChatGui:key_press(o, k)
+	key_press(self, o, k)
+	if self._key_pressed ~= nil then
+		TeamSpeak.Hooks:Call("ChatManagerKeyPress", self._key_pressed, self)
+	end
+end
+
 local send_message = ChatManager.send_message
 function ChatManager:send_message(channel, sender, message)
 	local args = TeamSpeak.Hooks:Call("ChatManagerOnSendMessage", channel, sender, message)

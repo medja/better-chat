@@ -139,6 +139,49 @@ if not _G.TeamSpeak then
 		end)
 	end
 
+	TeamSpeak.Hooks:Add("ChatManagerKeyPress", function(key, chat)
+		if key == Idstring("tab") then
+			local panel = chat._input_panel:child("input_text")
+			local i, text = panel:selection(), panel:text()
+			local offset = text:sub(i + 1):match("^%S*")
+			local input = (text:sub(0, i) .. offset):lower()
+			local players = {}
+			for _, player in pairs(managers.network:game():all_members()) do
+				table.insert(players, player:peer():name())
+			end
+			local best, best_match
+			while input:len() > 0 do
+				for _, player in pairs(players) do
+					local match = player:lower():find(input, 0, true)
+					if match ~= nil then
+						if best_match == nil or best_match < match then
+							best = player
+							best_match = match
+						end
+					end
+				end
+				if best ~= nil then break end
+				input = input:sub((input:find("%s") or input:len()) + 1)
+			end
+			if best ~= nil then
+				local input_length = input:len()
+				local after_length = offset:len()
+				local before_length = input_length - after_length
+				local best_length = best:len()
+				local after = text:sub(i + after_length + 1):lower()
+				local match = best:sub(input_length + 1):lower()
+				for i = 0, math.min(after:len(), match:len()) do
+					if after:sub(i, i) ~= match:sub(i, i) then break end
+					after_length = after_length + 1
+				end
+				panel:set_text(text:sub(0, i - before_length) .. best .. text:sub(i + after_length))
+				local selection = i - before_length + best_length
+				panel:set_selection(selection, selection)
+				chat:update_caret()
+			end
+		end
+	end)
+
 	-- [[ Helpers ]] --
 
 	-- Finds a parameter inside the string and unescapes it
