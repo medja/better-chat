@@ -217,14 +217,18 @@ if not _G.TeamSpeak then
 				for _, player in ipairs(managers.network:game():all_members()) do
 					table.insert(players, player:peer():name())
 				end
+				for _, player in pairs(TeamSpeak.Clients) do
+					table.insert(players, player)
+				end
 				-- Match player names with the input
-				local matches = {}
+				local matches, hashes = {}, {}
 				while input:len() > 0 do
 					for _, player in ipairs(players) do
 						-- If the player name contains the input add it to the list
 						local match = player:lower():find(input, 0, true)
-						if match ~= nil then
+						if match ~= nil and hashes[player] == nil then
 							table.insert(matches, { match, player })
+							hashes[player] = true
 						end
 					end
 					if #matches > 0 then break end
