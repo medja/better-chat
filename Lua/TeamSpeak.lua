@@ -9,6 +9,7 @@ if not _G.TeamSpeak then
 	_G.TeamSpeak = { Version = "1.0.4 beta", Path = "TeamSpeak/lib/" }
 
 	TeamSpeak.Channels = { GLOBAL = "3", CHANNEL = "2", PRIVATE = "1" }
+	TeamSpeak.GameState = nil
 
 	-- [[ Parse Options ]] --
 
@@ -139,6 +140,10 @@ if not _G.TeamSpeak then
 		end)
 	end
 
+	TeamSpeak.Hooks:Add("GameStateChange", function(state)
+		TeamSpeak.GameState = state
+	end)
+
 	-- Autocomplete matches and current index
 	local autocomplete_index = 0
 	local autocomplete_matches = nil
@@ -254,7 +259,9 @@ do
 
 	-- Script pairs used for overriding classes
 	local requiredScripts = {
-		["lib/managers/chatmanager"] = "ChatManager.lua"
+		["lib/managers/chatmanager"] = "ChatManager.lua",
+		["lib/managers/hud/hudchat"] = "HUDChat.lua",
+		["lib/utils/game_state_machine/gamestatemachine"] = "GameStateMachine.lua"
 	}
 
 	-- If the required script has to be overriden

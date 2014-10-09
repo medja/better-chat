@@ -222,13 +222,22 @@ int LoadChatMessages(lua_State *L)
 void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 {
 	// If the required file matches any we need to override
-	if (strcmp(file, "lib/managers/chatmanager") == 0)
+	if (strcmp(file, "lib/managers/chatmanager") == 0
+	 || strcmp(file, "lib/managers/hud/hudchat") == 0
+	 || strcmp(file, "lib/utils/game_state_machine/gamestatemachine") == 0)
 	{
+		// Checks if the global TeamSpeak variable has been defined
+		lua_getglobal(L, "TeamSpeak");
+		int type = lua_type(L, -1);
+
 		// Load that file into the game
 		if (luaL_loadfile(L, "TeamSpeak/TeamSpeak.lua") == 0)
 		{
 			// And execute it
 			lua_pcall(L, 0, LUA_MULTRET, 0);
+
+			// Make sure to only initalize once for each states
+			if (type != 0) return;
 
 			// Indexes the global TeamSpeak variable
 			lua_getglobal(L, "TeamSpeak");
@@ -258,7 +267,7 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 				lua_pcall(L, 3, 0, 0);
 			}
 			
-			// Saves the current Lua state and creates the network thread 
+			// Saves the current Lua state and creates the network thread
 			state = L;
 			if (!running) CreateThread(NULL, 0, Main, NULL, 0, NULL);
 		}
