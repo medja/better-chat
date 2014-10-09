@@ -9,6 +9,7 @@ if not _G.TeamSpeak then
 	_G.TeamSpeak = { Version = "1.0.4 beta", Path = "TeamSpeak/lib/" }
 
 	TeamSpeak.Channels = { GLOBAL = "3", CHANNEL = "2", PRIVATE = "1" }
+	TeamSpeak.Clients = {}
 	TeamSpeak.GameState = nil
 
 	-- [[ Parse Options ]] --
@@ -40,6 +41,12 @@ if not _G.TeamSpeak then
 
 	function TeamSpeak.OnReceive(body)
 		local command, parameters = TeamSpeak.parse(body)
+		if command == nil then
+			TeamSpeak.Queue:Call(parameters)
+			return
+		elseif command == "error" then
+			return
+		end
 		parameters = parameters[1]
 		io.write("[TS] " .. command .. "\n")
 		if command == "notifytextmessage" then
@@ -48,6 +55,16 @@ if not _G.TeamSpeak then
 			local message = parameters.msg
 			TeamSpeak.Hooks:Call("TeamSpeakOnReceiveMessage", channel, sender, message)
 		end
+	end
+
+	function TeamSpeak.UpdateClients()
+		TeamSpeak.Send("clientlist")
+		TeamSpeak.Queue:Push(function(clients)
+			TeamSpeak.Clients = {}
+			for _, client in ipairs(clients) do
+				TeamSpeak.Clients[client.clid] = client.client_nickname
+			end
+		end)
 	end
 
 	-- [[ Hooks ]] --
@@ -82,6 +99,18 @@ if not _G.TeamSpeak then
 		end
 		-- Returns the possibly new set of arguments
 		return args
+	end
+
+	-- [[ Queue ]] --
+
+	TeamSpeak.Queue = {}
+
+	function TeamSpeak.Queue:Push(func)
+		table.insert(self, func)
+	end
+
+	function TeamSpeak.Queue:Call(...)
+		table.remove(self, 1)(...)
 	end
 
 	-- [[ Logic ]] --

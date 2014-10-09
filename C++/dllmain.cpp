@@ -20,6 +20,8 @@ std::atomic<SOCKET> client = NULL;
 std::atomic<lua_State *> state = NULL;
 // Boolean telling the socket thread whether to keep the network loop running
 std::atomic<bool> running = FALSE;
+// Boolean telling if the TeamSpeak mod has been initialized
+std::atomic<bool> initialized = TRUE;
 // Queue of commands to be sent to the Lua script
 Concurrency::concurrent_queue<String *> queue;
 // Chat message history and its length and status
@@ -266,6 +268,9 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 				lua_pushcfunction(L, LoadChatMessages);
 				lua_pcall(L, 3, 0, 0);
 			}
+
+			// Note that the Lua side of this mod still requires initialization
+			initialized = FALSE;
 			
 			// Saves the current Lua state and creates the network thread
 			state = L;
@@ -278,21 +283,34 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 
 void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 {
-	// If the Lua state matches out initial script load state,
-	// the tick type is an update tick and out message queue is not empty
-	if (L == state && strcmp(type, "update") == 0 && !queue.empty())
+	// If the Lua state matches out initial script
+	// load state and the tick type is an update tick
+	if (L == state && strcmp(type, "update") == 0)
 	{
-		// Indexes the global TeamSpeak variable
+		// Index the global TeamSpeak variable
 		lua_getglobal(L, "TeamSpeak");
 		int index = lua_gettop(L);
 
-		// And sends each message over to a Lua function
-		for (String *message; queue.try_pop(message);)
+		// Initialize the Lua part of the mod if a connection
+		// to ClientQuery has been established
+		if (!initialized && client != NULL)
 		{
-			lua_getfield(L, index, "OnReceive");
-			lua_pushlstring(L, message->value(), message->length());
-			lua_pcall(L, 1, 0, 0);
-			delete message;
+			initialized = TRUE;
+			// Updates the list of clients connected to the server
+			lua_getfield(L, index, "UpdateClients");
+			lua_pcall(L, 0, 0, 0);
+		}
+
+		// Pass any recived messages from TeamSpeak to a Lua function
+		if (!queue.empty())
+		{
+			for (String *message; queue.try_pop(message);)
+			{
+				lua_getfield(L, index, "OnReceive");
+				lua_pushlstring(L, message->value(), message->length());
+				lua_pcall(L, 1, 0, 0);
+				delete message;
+			}
 		}
 	}
 }
