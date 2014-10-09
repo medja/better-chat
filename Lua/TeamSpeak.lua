@@ -9,6 +9,7 @@ if not _G.TeamSpeak then
 	_G.TeamSpeak = { Version = "1.0.4 beta", Path = "TeamSpeak/lib/" }
 
 	TeamSpeak.Channels = { GLOBAL = "3", CHANNEL = "2", PRIVATE = "1" }
+	TeamSpeak.Self = {}
 	TeamSpeak.Clients = {}
 	TeamSpeak.GameState = nil
 
@@ -57,15 +58,49 @@ if not _G.TeamSpeak then
 			local sender = parameters.invokername
 			local message = parameters.msg
 			TeamSpeak.Hooks:Call("TeamSpeakOnReceiveMessage", channel, sender, message)
+		elseif command == "notifycliententerview" then
+			TeamSpeak.Clients[parameters.clid] = { name = parameters.client_nickname, channel = parameters.ctid }
+			TeamSpeak.OnClientMove(parameters.clid, parameters.ctid)
+		elseif command == "notifyclientleftview" then
+			TeamSpeak.OnClientMove(parameters.clid, nil)
+			TeamSpeak.Clients[parameters.clid] = nil
+		elseif command == "notifyclientmoved" then
+			if parameters.clid == TeamSpeak.Self.Id then
+				TeamSpeak.Self.Channel = parameters.ctid
+			else
+				TeamSpeak.OnClientMove(parameters.clid, parameters.ctid)
+			end
 		end
 	end
 
-	function TeamSpeak.UpdateClients()
+	function TeamSpeak.OnClientMove(id, channel)
+		local client = TeamSpeak.Clients[id]
+		if channel ~= nil and channel == TeamSpeak.Self.Channel then
+			local action = channel == client.channel and "entered" or "joined"
+			local message = string.format("%s %s your channel", client.name, action)
+			TeamSpeak.ShowMessage("Server", message, TeamSpeak.Options.Colors.Global)
+		elseif client.channel == TeamSpeak.Self.Channel then
+			local action = channel == nil and "disconnected from" or "left"
+			local message = string.format("%s %s your channel", client.name, action)
+			TeamSpeak.ShowMessage("Server", message, TeamSpeak.Options.Colors.Global)
+		end
+		client.channel = channel
+	end
+
+	function TeamSpeak.FetchInfo()
+		TeamSpeak.Send("whoami")
+		TeamSpeak.Queue:Push(function(client)
+			TeamSpeak.Self.Id = client[1].clid
+			TeamSpeak.Self.Channel = client[1].cid
+		end)
 		TeamSpeak.Send("clientlist")
 		TeamSpeak.Queue:Push(function(clients)
 			TeamSpeak.Clients = {}
 			for _, client in ipairs(clients) do
-				TeamSpeak.Clients[client.clid] = client.client_nickname
+				if client.clid ~= TeamSpeak.Self.Id then
+					TeamSpeak.Clients[client.clid] = { name = client.client_nickname, channel = client.cid }
+					TeamSpeak.OnClientMove(client.clid, client.cid)
+				end
 			end
 		end)
 	end
@@ -138,17 +173,17 @@ if not _G.TeamSpeak then
 		if command == "whisper" or command == "w" then
 			-- Handles: /msg <client> <message> | /ts <client> <message>
 			-- Sends a private TeamSpeak message
-			local client = message:match("^%S+")
-			message = message:sub(client:len() + 2)
+			local target = message:match("^%S+")
+			message = message:sub(target:len() + 2)
 			local id = nil
-			for key, name in pairs(TeamSpeak.Clients) do
-				if name == client then
+			for key, client in pairs(TeamSpeak.Clients) do
+				if client.name == target then
 					id = key
 					break
 				end
 			end
 			if id ~= nil then
-				TeamSpeak.Send("sendtextmessage targetmode=1 target=".. id .." msg=" .. TeamSpeak.escape(message))
+				TeamSpeak.Send("sendtextmessage targetmode=1 target=" .. id .. " msg=" .. TeamSpeak.escape(message))
 			end
 			return false
 		elseif command == "msg" or command == "ts" then
@@ -221,7 +256,7 @@ if not _G.TeamSpeak then
 					table.insert(players, player:peer():name())
 				end
 				for _, player in pairs(TeamSpeak.Clients) do
-					table.insert(players, player)
+					table.insert(players, player.name)
 				end
 				-- Match player names with the input
 				local matches, hashes = {}, {}

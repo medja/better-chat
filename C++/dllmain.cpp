@@ -297,7 +297,7 @@ void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 		{
 			initialized = TRUE;
 			// Updates the list of clients connected to the server
-			lua_getfield(L, index, "UpdateClients");
+			lua_getfield(L, index, "FetchInfo");
 			lua_pcall(L, 0, 0, 0);
 		}
 
