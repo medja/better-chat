@@ -132,10 +132,31 @@ if not _G.TeamSpeak then
 		if command == nil then return end
 		-- Removes the command from the message
 		message = message:sub(command:len() + 3)
-		if command == "msg" or command == "ts" then
+		if command == "whisper" or command == "w" then
+			-- Handles: /msg <client> <message> | /ts <client> <message>
+			-- Sends a private TeamSpeak message
+			local client = message:match("^%S+")
+			message = message:sub(client:len() + 2)
+			local id = nil
+			for key, name in pairs(TeamSpeak.Clients) do
+				if name == client then
+					id = key
+					break
+				end
+			end
+			if id ~= nil then
+				TeamSpeak.Send("sendtextmessage targetmode=1 target=".. id .." msg=" .. TeamSpeak.escape(message))
+			end
+			return false
+		elseif command == "msg" or command == "ts" then
 			-- Handles: /msg <message> | /ts <message>
 			-- Sends a message via the current TeamSpeak channel
 			TeamSpeak.Send("sendtextmessage targetmode=2 msg=" .. TeamSpeak.escape(message))
+			return false
+		elseif command == "global" or command == "g" then
+			-- Handles: /global <message> | /g <message>
+			-- Sends a message via the current TeamSpeak channel
+			TeamSpeak.Send("sendtextmessage targetmode=3 msg=" .. TeamSpeak.escape(message))
 			return false
 		elseif command == "mute" then
 			-- Handles: /mute <username>
