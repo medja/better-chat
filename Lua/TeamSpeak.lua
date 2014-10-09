@@ -30,6 +30,10 @@ if not _G.TeamSpeak then
 
 	-- [[ Internals ]] --
 
+	function TeamSpeak.Log(...)
+		io.write("[TS] " .. string.format(...) .. "\n")
+	end
+
 	-- Displays (and saves) a message in the in-game chat
 
 	function TeamSpeak.ShowMessage(sender, message, color, icon)
@@ -48,7 +52,6 @@ if not _G.TeamSpeak then
 			return
 		end
 		parameters = parameters[1]
-		io.write("[TS] " .. command .. "\n")
 		if command == "notifytextmessage" then
 			local channel = parameters.targetmode
 			local sender = parameters.invokername
@@ -160,7 +163,7 @@ if not _G.TeamSpeak then
 			return false
 		elseif command == "mute" then
 			-- Handles: /mute <username>
-			io.write("[TS][WIP] Muted " .. message .. "\n")
+			TeamSpeak.Log("mute: %s", message)
 			return false
 		end
 	end)
