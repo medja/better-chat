@@ -39,12 +39,13 @@ if not _G.TeamSpeak then
 	-- Calls hooks for each implemented event
 
 	function TeamSpeak.OnReceive(body)
-		local command = body:match("^(%S+)");
+		local command, parameters = TeamSpeak.parse(body)
+		parameters = parameters[1]
 		io.write("[TS] " .. command .. "\n")
 		if command == "notifytextmessage" then
-			local channel = TeamSpeak.param("targetmode", body)
-			local sender = TeamSpeak.param("invokername", body)
-			local message = TeamSpeak.param("msg", body)
+			local channel = parameters.targetmode
+			local sender = parameters.invokername
+			local message = parameters.msg
 			TeamSpeak.Hooks:Call("TeamSpeakOnReceiveMessage", channel, sender, message)
 		end
 	end
@@ -234,9 +235,18 @@ if not _G.TeamSpeak then
 
 	-- [[ Helpers ]] --
 
-	-- Finds a parameter inside the string and unescapes it
-	function TeamSpeak.param(name, body)
-		return TeamSpeak.unescape(body:match(name .. "=(%S+)"))
+	function TeamSpeak.parse(message)
+		local command = message:match("^(%S+)")
+		if command:find("=") ~= nil then command = nil end
+		local list, parameters = {}
+		for body in message:gmatch("[^|]+") do
+			parameters = {}
+			for key, value in body:gmatch("(%S+)=(%S+)") do
+				parameters[key] = TeamSpeak.unescape(value)
+			end
+			table.insert(list, parameters)
+		end
+		return command, list
 	end
 
 	-- Character pairs used for escaping and unescaping TeamSpeak ClienQuery strings
