@@ -6,7 +6,7 @@ if not _G.TeamSpeak then
 
 	-- [[ TeamSpeak ]] --
 
-	_G.TeamSpeak = { Version = "1.0.4 beta", Path = "TeamSpeak/lib/" }
+	_G.TeamSpeak = { Version = "1.0.5 beta", Path = "TeamSpeak/lib/" }
 
 	TeamSpeak.Channels = { GLOBAL = "3", CHANNEL = "2", PRIVATE = "1" }
 	TeamSpeak.Self = {}
