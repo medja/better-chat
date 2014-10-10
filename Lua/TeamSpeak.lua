@@ -11,6 +11,7 @@ if not _G.TeamSpeak then
 	TeamSpeak.Channels = { GLOBAL = "3", CHANNEL = "2", PRIVATE = "1" }
 	TeamSpeak.Self = {}
 	TeamSpeak.Clients = {}
+	TeamSpeak.Receivers = {}
 	TeamSpeak.GameState = nil
 	TeamSpeak.LastSender = nil
 
@@ -56,7 +57,7 @@ if not _G.TeamSpeak then
 		parameters = parameters[1]
 		if command == "notifytextmessage" then
 			local channel = parameters.targetmode
-			local sender = parameters.invokername
+			local sender = parameters.invokerid
 			local message = parameters.msg
 			TeamSpeak.Hooks:Call("TeamSpeakOnReceiveMessage", channel, sender, message)
 		elseif command == "notifycliententerview" then
@@ -229,9 +230,20 @@ if not _G.TeamSpeak then
 
 	-- Handles messages received from TeamSpeak
 	TeamSpeak.Hooks:Add("TeamSpeakOnReceiveMessage", function(channel, sender, message)
+		local name = TeamSpeak.Clients[sender].name
+		if channel == TeamSpeak.Channels.PRIVATE then
+			local target
+			if sender == TeamSpeak.Self.Id then
+				target = table.remove(TeamSpeak.Receivers, 1)
+			else
+				TeamSpeak.LastSender = sender
+				target = TeamSpeak.Self.Id
+			end
+			name = name .. " -> " .. TeamSpeak.Clients[target].name
+		end
 		local color = TeamSpeak.Options.Colors.Channel
 		if channel == TeamSpeak.Channels.GLOBAL then color = TeamSpeak.Options.Colors.Global end
-		TeamSpeak.ShowMessage(sender, message, color)
+		TeamSpeak.ShowMessage(name, message, color)
 	end)
 
 	-- Discards duplicate messages if the chat lag fix is enabled
