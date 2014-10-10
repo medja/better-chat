@@ -28,18 +28,20 @@ Concurrency::concurrent_queue<String *> queue;
 std::list<ChatMessage *> history;
 unsigned int max_history = 20;
 bool loading_history = false;
+// Id of last client to send a private message
+String last_sender;
 
 // Tries to connect to TeamSpeak using ClientQuery
 // Returns a new socket or NULL on failure
 
 SOCKET Connect(PCSTR hostname, PCSTR port)
 {
-	// Creates a structure used for containing the socket information
+	// Create a structure used for containing the socket information
 	WSADATA wsaData;
 	int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
 	if (result != 0) return NULL;
 
-	// Creates a structure used for containing the connection information
+	// Create a structure used for containing the connection information
 	struct addrinfo *info, *ptr, hints;
 	ZeroMemory(&hints, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
@@ -52,7 +54,7 @@ SOCKET Connect(PCSTR hostname, PCSTR port)
 		return NULL;
 	}
 
-	// Tries to connect to the specified address
+	// Try to connect to the specified address
 	SOCKET client = INVALID_SOCKET;
 	for (ptr = info; ptr != NULL; ptr = ptr->ai_next)
 	{
@@ -72,7 +74,7 @@ SOCKET Connect(PCSTR hostname, PCSTR port)
 		break;
 	}
 
-	// Releases the address information strcuture from memory
+	// Release the address information strcuture from memory
 	freeaddrinfo(info);
 
 	// Return NULL if the connection could not be established
@@ -82,7 +84,7 @@ SOCKET Connect(PCSTR hostname, PCSTR port)
 		return NULL;
 	}
 
-	// Sets keep alive to true for the socket
+	// Set keep alive to true for the socket
 	char value = 1;
 	setsockopt(client, SOL_SOCKET, SO_KEEPALIVE, &value, sizeof(value));
 
@@ -100,38 +102,38 @@ DWORD WINAPI Main(LPVOID param)
 	const char *separator = "\n\r";
 	const char *command = "clientnotifyregister schandlerid=0 event=any\n";
 
-	// Starts the network loop
+	// Start the network loop
 	for (running = true; running;)
 	{
-		// Connects to the local TeamSpeak ClientQuery and retries on failure
+		// Connect to the local TeamSpeak ClientQuery and retries on failure
 		client = Connect("127.0.0.1", "25639");
 		if (client == NULL) continue;
 
-		// Receives the initial ClientQuery headers
+		// Receive the initial ClientQuery headers
 		for (int header = 182; header > 0; header -= length)
 			length = recv(client, buffer, BUFLEN, 0);
 
-		// Sends a "listen to all events" command and receives its response
+		// Send a "listen to all events" command and receives its response
 		send(client, command, strlen(command), 0);
 		recv(client, buffer, BUFLEN, 0);
 
-		// Reads messages from the ClientQuery input stream
+		// Read messages from the ClientQuery input stream
 		do
 		{
-			// Receives a message and null terminates it
+			// Receive a message and null terminates it
 			buffer[length = recv(client, buffer, BUFLEN, 0)] = 0;
-			// Splits up different messages that might be in the same buffer
+			// Split up different messages that might be in the same buffer
 			ptr = strtok_s(buffer, separator, &context);
 			while (ptr != NULL)
 			{
-				// Copies the messages to heap memory and saves them to a queue
+				// Copy the messages to heap memory and saves them to a queue
 				queue.push(new String(ptr));
 				ptr = strtok_s(NULL, separator, &context);
 			}
 
 		} while (length > 0 && running);
 
-		// Once the connection is closed cleans up all of its resources
+		// Once the connection is closed clean up all of its resources
 		{
 			SOCKET socket = client;
 			client = NULL;
@@ -148,10 +150,10 @@ DWORD WINAPI Main(LPVOID param)
 
 int SendCommand(lua_State *L)
 {
-	// Stops if the socket is not connected or no message has been sent
+	// Stop if the socket is not connected or no message has been sent
 	if (client == NULL || lua_type(L, 1) == -1) return 0;
 
-	// Reads the message and sends it
+	// Read the message and sends it
 	const char *buffer = lua_tostring(L, 1);
 	send(client, buffer, strlen(buffer), 0);
 	send(client, "\n", 1, 0);
@@ -163,20 +165,20 @@ int SendCommand(lua_State *L)
 
 int SaveChatMessage(lua_State *L)
 {
-	// Stops if chat history is disabled or being loaded
+	// Stop if chat history is disabled or being loaded
 	if (loading_history || max_history < 1) return 0;
 
-	// Creates a new message
+	// Create a new message
 	ChatMessage *message = new ChatMessage();
 	message->sender = String(lua_tostring(L, 1));
 	message->message = String(lua_tostring(L, 2));
-	// Saves the Color userdata directly
+	// Save the Color userdata directly
 	message->color = *(Color *)lua_touserdata(L, 3);
 	message->icon = String(lua_tostring(L, 4));
 
-	// Inserts the message at the end of the chat history
+	// Insert the message at the end of the chat history
 	history.push_back(message);
-	// Removes the first few messages if the limit has been reached
+	// Remove the first few messages if the limit has been reached
 	while (history.size() > max_history)
 	{
 		delete history.front();
@@ -191,25 +193,25 @@ int SaveChatMessage(lua_State *L)
 
 int LoadChatMessages(lua_State *L)
 {
-	// Stops if there is no chat history
+	// Stop if there is no chat history
 	if (max_history < 1 || history.empty()) return 0;
 	loading_history = true;
 
-	// Indexes the global TeamSpeak variable
+	// Index the global TeamSpeak variable
 	ChatMessage *message;
 	lua_getglobal(L, "TeamSpeak");
 	int index = lua_gettop(L);
 	
-	// And loads each message inside the chat history
+	// And load each message inside the chat history
 	for (auto i = history.begin(); i != history.end(); i++)
 	{
 		message = *i;
 		lua_getfield(L, index, "ShowMessage");
 		lua_pushlstring(L, message->sender.value(), message->sender.length());
 		lua_pushlstring(L, message->message.value(), message->message.length());
-		// Recreates and pushes the userdata
+		// Recreate and pushes the userdata
 		message->color.push(L);
-		// Sets an icon if required
+		// Set an icon if required
 		if (message->icon.value() == NULL) lua_pushnil(L);
 		else lua_pushlstring(L, message->icon.value(), message->icon.length());
 		lua_pcall(L, 4, 0, 0);
@@ -228,7 +230,7 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 	 || strcmp(file, "lib/managers/hud/hudchat") == 0
 	 || strcmp(file, "lib/utils/game_state_machine/gamestatemachine") == 0)
 	{
-		// Checks if the global TeamSpeak variable has been defined
+		// Check if the global TeamSpeak variable has been defined
 		lua_getglobal(L, "TeamSpeak");
 		int type = lua_type(L, -1);
 
@@ -238,19 +240,26 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 			// And execute it
 			lua_pcall(L, 0, LUA_MULTRET, 0);
 
-			// Make sure to only initalize once for each states
-			if (type != 0) return;
+			// Make sure to only initalize once for each state
+			if (type != LUA_TNIL) return;
 
-			// Indexes the global TeamSpeak variable
+			// Index the global TeamSpeak variable
 			lua_getglobal(L, "TeamSpeak");
 			int index = lua_gettop(L);
+
+			// Load variables
+			if (last_sender != NULL)
+			{
+				lua_pushlstring(L, last_sender.value(), last_sender.length());
+				lua_setfield(L, index, "LastSender");
+			}
 
 			// Check the chat history option
 			lua_getfield(L, index, "Options");
 			lua_getfield(L, -1, "ChatHistory");
 			max_history = (unsigned int)lua_tonumber(L, -1);
 
-			// Maps C++ functions to Lua variables inside the TeamSpeak object
+			// Map C++ functions to Lua variables inside the TeamSpeak object
 			lua_pushcfunction(L, &SendCommand);
 			lua_setfield(L, index, "Send");
 			lua_pushcfunction(L, &SaveChatMessage);
@@ -272,7 +281,7 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 			// Note that the Lua side of this mod still requires initialization
 			initialized = FALSE;
 			
-			// Saves the current Lua state and creates the network thread
+			// Save the current Lua state and creates the network thread
 			state = L;
 			if (!running) CreateThread(NULL, 0, Main, NULL, 0, NULL);
 		}
@@ -283,9 +292,10 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 
 void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 {
-	// If the Lua state matches out initial script
-	// load state and the tick type is an update tick
-	if (L == state && strcmp(type, "update") == 0)
+	// Make sure this is the correct Lua state
+	if (L != state) return;
+
+	if (strcmp(type, "update") == 0)
 	{
 		// Index the global TeamSpeak variable
 		lua_getglobal(L, "TeamSpeak");
@@ -296,7 +306,7 @@ void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 		if (!initialized && client != NULL)
 		{
 			initialized = TRUE;
-			// Updates the list of clients connected to the server
+			// Update the list of clients connected to the server
 			lua_getfield(L, index, "FetchInfo");
 			lua_pcall(L, 0, 0, 0);
 		}
@@ -312,6 +322,16 @@ void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 				delete message;
 			}
 		}
+	}
+	else if (strcmp(type, "destroy") == 0)
+	{
+		// Index the global TeamSpeak variable
+		lua_getglobal(L, "TeamSpeak");
+		int index = lua_gettop(L);
+
+		// Stores variables
+		lua_getfield(L, index, "LastSender");
+		if (lua_type(L, -1) != LUA_TNIL) last_sender = String(lua_tostring(L, -1));
 	}
 }
 
