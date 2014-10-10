@@ -1,3 +1,9 @@
+local init = HUDChat.init
+function HUDChat:init(ws, hud)
+	init(self, ws, hud)
+	TeamSpeak.Hooks:Call("ChatManagerOnLoad")
+end
+
 local key_press = HUDChat.key_press
 function HUDChat:key_press(o, k)
 	if TeamSpeak.GameState:find("game") == nil or
