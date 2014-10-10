@@ -12,6 +12,7 @@ if not _G.TeamSpeak then
 	TeamSpeak.Self = {}
 	TeamSpeak.Clients = {}
 	TeamSpeak.GameState = nil
+	TeamSpeak.LastSender = nil
 
 	-- [[ Parse Options ]] --
 
@@ -189,6 +190,18 @@ if not _G.TeamSpeak then
 					msg = message
 				}))
 				table.insert(TeamSpeak.Receivers, id)
+			end
+			return false
+		elseif command == "reply" or command == "r" then
+			-- Handles: /reply <message> | /r <message>
+			-- Sends a reply to the last private message
+			if TeamSpeak.LastSender ~= nil then
+				TeamSpeak.Send(TeamSpeak.packet("sendtextmessage", {
+					targetmode = TeamSpeak.Channels.PRIVATE,
+					target = TeamSpeak.LastSender,
+					msg = message
+				}))
+				table.insert(TeamSpeak.Receivers, TeamSpeak.LastSender)
 			end
 			return false
 		elseif command == "msg" or command == "ts" then
