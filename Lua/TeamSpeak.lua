@@ -170,7 +170,7 @@ if not _G.TeamSpeak then
 		-- Removes the command from the message
 		message = message:sub(command:len() + 3)
 		if command == "whisper" or command == "w" then
-			-- Handles: /msg <client> <message> | /ts <client> <message>
+			-- Handles: /whisper <client> <message> | /w <client> <message>
 			-- Sends a private TeamSpeak message
 			local target = message:match("^%S+")
 			message = message:sub(target:len() + 2)
@@ -181,19 +181,31 @@ if not _G.TeamSpeak then
 					break
 				end
 			end
-			if id ~= nil then
-				TeamSpeak.Send("sendtextmessage targetmode=1 target=" .. id .. " msg=" .. TeamSpeak.escape(message))
+			if id ~= nil and id ~= TeamSpeak.Self.Id then
+				TeamSpeak.LastSender = id
+				TeamSpeak.Send(TeamSpeak.packet("sendtextmessage", {
+					targetmode = TeamSpeak.Channels.PRIVATE,
+					target = id,
+					msg = message
+				}))
+				table.insert(TeamSpeak.Receivers, id)
 			end
 			return false
 		elseif command == "msg" or command == "ts" then
 			-- Handles: /msg <message> | /ts <message>
 			-- Sends a message via the current TeamSpeak channel
-			TeamSpeak.Send("sendtextmessage targetmode=2 msg=" .. TeamSpeak.escape(message))
+			TeamSpeak.Send(TeamSpeak.packet("sendtextmessage", {
+				targetmode = TeamSpeak.Channels.CHANNEL,
+				msg = message
+			}))
 			return false
 		elseif command == "global" or command == "g" then
 			-- Handles: /global <message> | /g <message>
 			-- Sends a message via the current TeamSpeak channel
-			TeamSpeak.Send("sendtextmessage targetmode=3 msg=" .. TeamSpeak.escape(message))
+			TeamSpeak.Send(TeamSpeak.packet("sendtextmessage", {
+				targetmode = TeamSpeak.Channels.GLOBAL,
+				msg = message
+			}))
 			return false
 		elseif command == "mute" then
 			-- Handles: /mute <username>
@@ -340,16 +352,26 @@ if not _G.TeamSpeak then
 		return command, list
 	end
 
+	function TeamSpeak.packet(command, parameters)
+		local body = command
+		if parameters ~= nil then
+			for key, value in pairs(parameters) do
+				body = body .. " " .. key .. "=" .. TeamSpeak.escape(value)
+			end
+		end
+		return body
+	end
+
 	-- Character pairs used for escaping and unescaping TeamSpeak ClienQuery strings
 	local escape_pairs = { ["\n"] = "\\n", ["\r"] = "\\r", [" "] = "\\s", ["\\"] = "\\\\", ["/"] = "\\/" }
-	local unescape_pairs = { n = "\n", r ="\r", t = " ", s = " " , ["\\"] = "\\", ["/"] = "/" }
+	local unescape_pairs = { ["\\n"] = "\n", ["\\r"] ="\r", ["\\t"] = " ", ["\\s"] = " " , ["\\\\"] = "\\", ["\\/"] = "/" }
 
 	function TeamSpeak.escape(value)
-		return value:gsub("(.)", escape_pairs)
+		return tostring(value):gsub(".", escape_pairs)
 	end
 
 	function TeamSpeak.unescape(value)
-		return value:gsub("\\(.)", unescape_pairs)
+		return value:gsub("\\.", unescape_pairs)
 	end
 
 end
