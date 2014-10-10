@@ -332,6 +332,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_DETACH:
 		// Stops the network loop
 		running = FALSE;
+		// Free memory
+		for (String *message; !queue.empty();) if (queue.try_pop(message)) delete message;
+		for (; !history.empty(); history.pop_front()) delete history.front();
 		break;
 	}
 	return TRUE;
