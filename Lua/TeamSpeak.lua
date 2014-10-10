@@ -101,7 +101,6 @@ if not _G.TeamSpeak then
 			TeamSpeak.Clients = {}
 			for _, client in ipairs(clients) do
 				TeamSpeak.Clients[client.clid] = { name = client.client_nickname, channel = client.cid }
-				TeamSpeak.OnClientMove(client.clid, client.cid)
 			end
 		end)
 	end
