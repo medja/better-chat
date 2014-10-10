@@ -74,6 +74,7 @@ if not _G.TeamSpeak then
 	end
 
 	function TeamSpeak.OnClientMove(id, channel)
+		if id == TeamSpeak.Self.Id then return end
 		local client = TeamSpeak.Clients[id]
 		if channel ~= nil and channel == TeamSpeak.Self.Channel then
 			local action = channel == client.channel and "entered" or "joined"
@@ -97,10 +98,8 @@ if not _G.TeamSpeak then
 		TeamSpeak.Queue:Push(function(clients)
 			TeamSpeak.Clients = {}
 			for _, client in ipairs(clients) do
-				if client.clid ~= TeamSpeak.Self.Id then
-					TeamSpeak.Clients[client.clid] = { name = client.client_nickname, channel = client.cid }
-					TeamSpeak.OnClientMove(client.clid, client.cid)
-				end
+				TeamSpeak.Clients[client.clid] = { name = client.client_nickname, channel = client.cid }
+				TeamSpeak.OnClientMove(client.clid, client.cid)
 			end
 		end)
 	end
