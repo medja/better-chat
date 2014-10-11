@@ -74,8 +74,14 @@ if not _G.TS then
 	end
 
 	-- Displays a message in the in-game chat
-	function TS.show_message(sender, message, color, icon)
+	function TS.show_message(sender, message, color, icon, formatter)
 		managers.chat:_receive_message(ChatManager.GAME, sender, message, color, icon)
+		if formatter ~= nil then
+			-- Call the formatter for each chat gui that received the message
+			for _, chat in ipairs(managers.chat._receivers[ChatManager.GAME]) do
+				formatter(chat)
+			end
+		end
 	end
 
 	-- Fetches the client list from TeamSpeak
@@ -96,6 +102,23 @@ if not _G.TS then
 					channel = client.cid }
 			end
 		end)
+	end
+
+	-- [[ Formatters ]] --
+
+	-- Formatters used for last second editing of messages in chat guis
+	TS.Formatters = {
+		-- TeamSpeak private message formatter
+		private = function(chat)
+			local line = TS.Formatters.get_last_line(chat)
+			local text = line:text()
+			line:set_range_color(text:find(" "), text:find(":") - 1, Color("FFFFFF"))
+		end
+	}
+
+	-- Returns the last line / message from the chat
+	function TS.Formatters.get_last_line(chat)
+		return chat._lines[#chat._lines][1]
 	end
 
 	-- [[ Hooks ]] --
