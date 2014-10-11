@@ -46,9 +46,9 @@ public:
 
 	const bool String::operator==(const String &other)
 	{
-		if (this->value_ == NULL) return other.value_ == NULL;
+		if (value_ == NULL) return other.value_ == NULL;
 		if (other.value_ == NULL) return false;
-		return strcmp(this->value_, other.value_) == 0;
+		return strcmp(value_, other.value_) == 0;
 	}
 
 	const bool String::operator!=(const String &other)
