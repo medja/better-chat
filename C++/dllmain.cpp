@@ -202,6 +202,19 @@ int LoadChatMessages(lua_State *L)
 
 	// Stores the current message
 	ChatMessage *message;
+	bool is_private;
+
+	// Get the private TeamSpeak message color
+	lua_getglobal(L, "TS");
+	lua_getfield(L, -1, "Options");
+	lua_getfield(L, -1, "colors");
+	lua_getfield(L, -1, "private");
+	int private_color = lua_gettop(L);
+
+	// Get the private TeamSpeak message formatter
+	lua_getfield(L, -4, "Formatters");
+	lua_getfield(L, -1, "private");
+	int private_formatter = lua_gettop(L);
 
 	// And load each message inside the chat history
 	for (auto i = history.begin(); i != history.end(); i++)
@@ -213,10 +226,19 @@ int LoadChatMessages(lua_State *L)
 		lua_pushlstring(L, message->message.value(), message->message.length());
 		// Recreate and push the userdata
 		message->color.push(L);
+		// Check if this is a private message
+		is_private = lua_equal(L, -1, private_color) == 1;
 		// Set an icon if required
 		if (message->icon.value() == NULL) lua_pushnil(L);
 		else lua_pushlstring(L, message->icon.value(), message->icon.length());
 		lua_pcall(L, 5, 0, 0);
+
+		// Format the last message if it was private
+		if (is_private)
+		{
+			lua_pushvalue(L, 1);
+			lua_pcall(L, 1, 0, 0);
+		}
 	}
 
 	loading_history = false;

@@ -213,12 +213,15 @@ if not _G.TS then
 		local name = TS.clients[sender].name
 		-- Default to the channel color
 		local color = TS.Options.colors.channel
+		-- Don't use a formatter
+		local formatter = nil
 		if channel == TS.channels.global then
 			-- If this is a server message change its color
 			color = TS.Options.colors.global
 		elseif channel == TS.channels.private then
-			-- If this is a private message change its color
+			-- If this is a private message change its color and use a formatter
 			color = TS.Options.colors.private
+			formatter = TS.Formatters.private
 			-- Prefix the sender's name accordingly
 			if sender == TS.local_client.id then
 				-- If thias message is sent by the local
@@ -231,7 +234,7 @@ if not _G.TS then
 			end
 		end
 		-- Show the message in chat
-		TS.show_message(name, message, color)
+		TS.show_message(name, message, color, nil, formatter)
 	end)
 
 	-- Displays messages whenever a client joins / leaves the local client's channel
