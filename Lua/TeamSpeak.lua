@@ -290,7 +290,17 @@ if not _G.TS then
 					id = key break
 				end
 			end
-			if id ~= nil and id != TS.local_client.id then
+			if id == nil then
+				-- Make sure the client exists
+				TS.show_message("Server",
+					target .. " is not online",
+					TS.Options.colors.info)
+			elseif id == TS.local_client.id then
+				-- The client isn't the local
+				TS.show_message("Server",
+					"You cannot send a message to yourself",
+					TS.Options.colors.info)
+			else
 				-- Use this id for replies
 				TS.last_sender = id
 				-- Send the private message command
@@ -308,7 +318,11 @@ if not _G.TS then
 			-- Sends a reply to the last private message
 
 			-- Check if any private messages have even been received
-			if TS.last_sender != nil then
+			if TS.last_sender == nil then
+				TS.show_message("Server",
+					"You haven't sent or received any private messages to reply to",
+					TS.Options.colors.info)
+			else
 				-- Send the private message command
 				TS.send_command(TS.packet("sendtextmessage", {
 					targetmode = TS.channels.private,
