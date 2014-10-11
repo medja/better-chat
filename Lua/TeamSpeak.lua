@@ -46,7 +46,31 @@ if not _G.TS then
 	-- Logs the current value with a [TS] prefix
 	-- Works like string.format and can handle tables
 	function TS.log(...)
-		io.write("[TS] " .. string.format(...) .. "\n")
+		local args = {...}
+		for key, value in ipairs(args) do
+			args[key] = TS.to_string(value)
+		end
+		io.write("[TS] " .. string.format(unpack(args)) .. "\n")
+	end
+
+	-- Transforms a value into a string
+	function TS.to_string(object)
+		if type(object) ~= "table" then
+			return tostring(object)
+		end
+		-- Convert tables manually
+		local result = ""
+		for key, value in pairs(object) do
+			local value_type = type(value)
+			if value_type == "string" then
+				value = "\"" .. value .. "\""
+			else
+				value = TS.to_string(value)
+			end
+			result = result .. ", " .. tostring(key) .. " = " .. value
+		end
+		-- Remove the leading comma
+		return "{ " .. result:sub(3) .. " }"
 	end
 
 	-- Displays a message in the in-game chat
