@@ -517,8 +517,16 @@ if not _G.TS then
 			panel:set_selection(TS.input.position, TS.input.position)
 		end)
 
+		-- Clears the chat input on enter
+		TS.Hooks:add("ChatGUI:KeyPress", function(key, chat)
+			if key == Idstring("enter") then
+				TS.input = { text = "", position = 0 }
+			end
+		end)
+
 		-- Saves the current chat input text and cursor position
 		TS.Hooks:add("ChatGUI:KeyRelease", function(key, chat)
+			if key == Idstring("enter") then return end
 			local panel = chat._input_panel:child("input_text")
 			TS.input = { text = panel:text(), position = panel:selection() }
 		end)
