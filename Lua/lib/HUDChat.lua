@@ -27,3 +27,17 @@ function HUDChat:key_press(o, k)
 		TS.Hooks:call("ChatGUI:KeyPress", self._key_pressed, self)
 	end
 end
+
+-- Add a hook for HUD chat key releases
+local key_release = HUDChat.key_release
+function HUDChat:key_release(o, k)
+	if self._key_pressed ~= nil then
+		TS.Hooks:call("ChatGUI:KeyRelease", self._key_pressed, self)
+	end
+	key_release(self, o, k)
+end
+
+-- Call the Show hook once the player enters the game
+TS.Hooks:add("GameState:EnterGame", function()
+	TS.Hooks:call("ChatGUI:Show", managers.hud._hud_chat)
+end)

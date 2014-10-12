@@ -3,6 +3,15 @@ local init = ChatGui.init
 function ChatGui:init(ws)
 	init(self, ws)
 	TS.Hooks:call("ChatGUI:Load", self)
+	-- Call the Show hook as well
+	TS.Hooks:call("ChatGUI:Show", self)
+end
+
+-- Add a hook for when the chat gui is displayed
+local show = ChatGui.show
+function ChatGui:show()
+	show(self)
+	TS.Hooks:call("ChatGUI:Show", self)
 end
 
 -- Add a hook for chat gui key presses
@@ -23,6 +32,15 @@ function ChatGui:key_press(o, k)
 	if self._key_pressed ~= nil then
 		TS.Hooks:call("ChatGUI:KeyPress", self._key_pressed, self)
 	end
+end
+
+-- Add a hook for chat gui key releases
+local key_release = ChatGui.key_release
+function ChatGui:key_release(o, k)
+	if self._key_pressed ~= nil then
+		TS.Hooks:call("ChatGUI:KeyRelease", self._key_pressed, self)
+	end
+	key_release(self, o, k)
 end
 
 -- Add a hook for handing messages about to be sent

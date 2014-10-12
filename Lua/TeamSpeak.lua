@@ -25,6 +25,9 @@ if not _G.TS then
 	-- Current game state name
 	TS.game_state = nil
 
+	-- Chat input message and position
+	TS.input = nil
+
 	-- [[ Parse Options ]] --
 
 	-- Load the options
@@ -501,6 +504,23 @@ if not _G.TS then
 				-- Discard all other autocomplete matches if any key besides tab is pressed
 				autocomplete_matches = nil
 			end
+		end)
+	end
+
+	-- Loads and restores the chat input text and selection between states
+	if TS.Options.restore_chat_input then
+		-- Loads the previous chat input text and cursor position
+		TS.Hooks:add("ChatGUI:Show", function(chat)
+			if TS.input == nil then return end
+			local panel = chat._input_panel:child("input_text")
+			panel:set_text(TS.input.text)
+			panel:set_selection(TS.input.position, TS.input.position)
+		end)
+
+		-- Saves the current chat input text and cursor position
+		TS.Hooks:add("ChatGUI:KeyRelease", function(key, chat)
+			local panel = chat._input_panel:child("input_text")
+			TS.input = { text = panel:text(), position = panel:selection() }
 		end)
 	end
 

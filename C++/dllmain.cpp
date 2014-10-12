@@ -30,6 +30,9 @@ unsigned int max_history = 20;
 bool loading_history = false;
 // Id of last client to send a private message
 String last_sender;
+// Text and cursor position of the chat input box
+String input_text;
+float input_position;
 
 // Tries to connect to TeamSpeak using ClientQuery
 // Returns a new socket or NULL on failure
@@ -277,6 +280,15 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 				lua_pushlstring(L, last_sender.value(), last_sender.length());
 				lua_setfield(L, index, "last_sender");
 			}
+			if (input_text != NULL)
+			{
+				lua_createtable(L, 0, 2);
+				lua_pushlstring(L, input_text.value(), input_text.length());
+				lua_setfield(L, -2, "text");
+				lua_pushfloat(L, input_position);
+				lua_setfield(L, -2, "position");
+				lua_setfield(L, index, "input");
+			}
 
 			// Check the chat history option
 			lua_getfield(L, index, "Options");
@@ -357,6 +369,14 @@ void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 		// Store Lua variables
 		lua_getfield(L, index, "last_sender");
 		if (lua_type(L, -1) != LUA_TNIL) last_sender = String(lua_tostring(L, -1));
+		lua_getfield(L, index, "input");
+		if (lua_type(L, -1) != LUA_TNIL)
+		{
+			lua_getfield(L, -1, "text");
+			input_text = String(lua_tostring(L, -1));
+			lua_getfield(L, -2, "position");
+			input_position = lua_tonumber(L, -1);
+		}
 	}
 }
 
