@@ -51,8 +51,15 @@ function ChatManager:send_message(channel, sender, message)
 end
 
 -- Add a hook for handing received messages
-local _receive_message = ChatManager._receive_message;
+local _receive_message = ChatManager._receive_message
 function ChatManager:_receive_message(channel, name, message, color, icon)
 	local args = TS.Hooks:call("ChatManager:ReceiveMessage", channel, name, message, color, icon)
 	if args ~= nil then return _receive_message(self, unpack(args)) end
+end
+
+-- Add a hook for handling messages from peers
+local receive_message_by_peer = ChatManager.receive_message_by_peer
+function ChatManager:receive_message_by_peer(channel, peer, message)
+	local args = TS.Hooks:call("ChatManager:ReceivePeerMessage", channel, peer, message)
+	if args ~= nil then return receive_message_by_peer(self, unpack(args)) end
 end

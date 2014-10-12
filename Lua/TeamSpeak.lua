@@ -468,15 +468,19 @@ if not _G.TS then
 	if TS.Options.fix_chat_lag then
 		-- A map of the last message from each player in the lobby
 		local last_messages = {}
-		TS.Hooks:add("ChatManager:ReceiveMessage", function(channel, sender, message, color, icon)
+		TS.Hooks:add("ChatManager:ReceivePeerMessage", function(channel, peer, message)
+			-- Make sure we only work with game chat messages
+			if channel ~= ChatManager.GAME then return end
+			-- Get the player's id
+			local sender = peer:id()
 			-- If this player has already sent a message with the same content
 			if last_messages[sender] and last_messages[sender].message == message then
 				-- Calculate the time that has elapsed since he sent it
 				local time = os.clock()
 				local interval = time - last_messages[sender].time
 				last_messages[sender].time = time
-				-- And discard the message if its less then 10 seconds
-				if interval < 10 then return false end
+				-- And discard the message if its less then 8 seconds
+				if interval < 8 then return false end
 			else
 				last_messages[sender] = { message = message, time = os.clock() }
 			end
