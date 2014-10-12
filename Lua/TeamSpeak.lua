@@ -276,13 +276,29 @@ if not _G.TS then
 	TS.Hooks:add("ChatManager:SendMessage", function(channel, sender, message)
 		-- Check for a command inside the message
 		local command = message:match("^/(%S+)")
-		if command == nil then return end
+		if command == nil or command == "" then return end
+		command = command:lower()
 		-- Remove the command from the message
 		message = message:sub(command:len() + 3)
 
-		if command == "whisper" or command == "w" then
+		if command == "help" then
+			-- Handles: /help
+			-- Displays a list of all commands
+			TS.show_message("Commands",
+				"/global, /help, /list, /msg, /reply, /whisper",
+				TS.Options.colors.info)
+			return false
+		elseif command == "whisper" or command == "w" then
 			-- Handles: /whisper <client> <message> | /w <client> <message>
 			-- Sends a private TeamSpeak message
+
+			-- Display command usage if only the command is passed
+			if message == "" then
+				TS.show_message("Usage",
+					"/whisper <client> <message>",
+					TS.Options.colors.info)
+				return false
+			end
 
 			-- Get the client name from the message
 			local target = message:match("^%S+")
@@ -322,10 +338,18 @@ if not _G.TS then
 			-- Handles: /reply <message> | /r <message>
 			-- Sends a reply to the last private message
 
+			-- Display command usage if only the command is passed
+			if message == "" then
+				TS.show_message("Usage",
+					"/reply <message>",
+					TS.Options.colors.info)
+				return false
+			end
+
 			-- Check if any private messages have even been received
 			if TS.last_sender == nil then
 				TS.show_message("Server",
-					"You haven't sent or received any private messages to reply to",
+					"You have no private messages to reply to",
 					TS.Options.colors.info)
 			else
 				-- Send the private message command
@@ -342,6 +366,14 @@ if not _G.TS then
 			-- Handles: /msg <message> | /ts <message>
 			-- Sends a message via the current TeamSpeak channel
 
+			-- Display command usage if only the command is passed
+			if message == "" then
+				TS.show_message("Usage",
+					"/msg <message>",
+					TS.Options.colors.info)
+				return false
+			end
+
 			-- Send the channel message command
 			TS.send_command(TS.packet("sendtextmessage", {
 				targetmode = TS.channels.channel,
@@ -350,7 +382,15 @@ if not _G.TS then
 			return false
 		elseif command == "global" or command == "g" then
 			-- Handles: /global <message> | /g <message>
-			-- Sends a message via the current TeamSpeak channel
+			-- Sends a message to the entire server
+
+			-- Display command usage if only the command is passed
+			if message == "" then
+				TS.show_message("Usage",
+					"/global <message>",
+					TS.Options.colors.info)
+				return false
+			end
 
 			-- Send the server message command
 			TS.send_command(TS.packet("sendtextmessage", {
@@ -359,9 +399,52 @@ if not _G.TS then
 			}))
 			-- Discard this message
 			return false
+		elseif command == "list" then
+			-- Handles: /list [channel|server]
+			-- Displays a list of clients in the channel or server
+
+			-- Use channel as the default parameter
+			if message == "" then message = "channel" end
+			message = message:lower()
+			if string.find("channel", message, 0, true) == 1 then
+				-- Find all clients in the channel
+				local clients = {}
+				for _, client in pairs(TS.clients) do
+					if client.channel == TS.local_client.channel then
+						table.insert(clients, client.name)
+					end
+				end
+				-- Sort and display them
+				table.sort(clients)
+				TS.show_message("Channel",
+					table.concat(clients, ", "),
+					TS.Options.colors.info)
+			elseif string.find("server", message, 0, true) == 1 then
+				-- Find all clients on the server
+				local clients = {}
+				for _, client in pairs(TS.clients) do
+					table.insert(clients, client.name)
+				end
+				-- Sort and display them
+				table.sort(clients)
+				TS.show_message("Server",
+					table.concat(clients, ", "),
+					TS.Options.colors.info)
+			else
+				-- Display command usage if an invalid parameter is passed
+				TS.show_message("Usage",
+					"/list [channel|server]",
+					TS.Options.colors.info)
+				return false
+			end
+			-- Discard this message
+			return false
 		elseif command == "mute" then
 			-- Handles: /mute <username>
 			TS.log("mute: %s", message)
+			TS.show_message("Info",
+				"This command has not been implemented",
+				TS.Options.colors.info)
 			return false
 		end
 	end)
