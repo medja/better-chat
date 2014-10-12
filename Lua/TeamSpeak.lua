@@ -20,6 +20,8 @@ if not _G.TS then
 	-- Last private channel client / used for replies
 	TS.last_sender = nil
 
+	-- In-game / in-lobby state
+	TS.in_game = false
 	-- Current game state name
 	TS.game_state = nil
 
@@ -365,6 +367,15 @@ if not _G.TS then
 	TS.Hooks:add("GameState:Change", function(state)
 		-- Save the game state
 		TS.game_state = state
+		-- Check if the player is in-game
+		local in_game = state:find("game") ~= nil
+			and state ~= "ingame_lobby_menu"
+			and state ~= "ingame_waiting_for_players"
+		-- If this has changed trigger an event
+		if TS.in_game ~= in_game then
+			TS.in_game = in_game
+			TS.Hooks:call(in_game and "GameState:EnterGame" or "GameState:LeaveGame")
+		end
 	end)
 
 	-- Discards duplicate messages if the chat lag fix is enabled
