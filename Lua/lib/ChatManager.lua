@@ -8,7 +8,18 @@ end
 -- Add a hook for chat gui key presses
 local key_press = ChatGui.key_press
 function ChatGui:key_press(o, k)
-	key_press(self, o, k)
+	-- Prevents the escape key from clearing the input
+	if TS.Options.clear_input_on_escape_key or k ~= Idstring("esc") then
+		key_press(self, o, k)
+	else
+		local panel = self._input_panel:child("input_text")
+		local text = panel:text()
+		local potision = panel:selection()
+		key_press(self, o, k)
+		panel:set_text(text)
+		panel:set_selection(potision, potision)
+	end
+
 	if self._key_pressed ~= nil then
 		TS.Hooks:call("ChatGUI:KeyPress", self._key_pressed, self)
 	end

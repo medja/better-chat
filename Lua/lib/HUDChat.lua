@@ -9,10 +9,20 @@ end
 local key_press = HUDChat.key_press
 function HUDChat:key_press(o, k)
 	-- Disable the chat outside the game
-	if TS.game_state:find("game") == nil or
-		TS.game_state == "ingame_lobby_menu" or
-		TS.game_state == "ingame_waiting_for_players" then return end
-	key_press(self, o, k)
+	if not TS.in_game then return end
+
+	-- Prevents the escape key from clearing the input
+	if TS.Options.clear_input_on_escape_key or k ~= Idstring("esc") then
+		key_press(self, o, k)
+	else
+		local panel = self._input_panel:child("input_text")
+		local text = panel:text()
+		local potision = panel:selection()
+		key_press(self, o, k)
+		panel:set_text(text)
+		panel:set_selection(potision, potision)
+	end
+
 	if self._key_pressed ~= nil then
 		TS.Hooks:call("ChatGUI:KeyPress", self._key_pressed, self)
 	end
