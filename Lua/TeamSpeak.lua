@@ -510,11 +510,11 @@ if not _G.TS then
 
 					-- Store all player names inside a table
 					local names = {}
-					for _, name in ipairs(managers.network:game():all_members()) do
-						table.insert(names, name:peer():name())
+					for _, player in ipairs(managers.network:game():all_members()) do
+						table.insert(names, player:peer():name())
 					end
-					for _, name in pairs(TS.clients) do
-						table.insert(names, name.name)
+					for _, client in pairs(TS.clients) do
+						table.insert(names, client.name)
 					end
 
 					-- Match the names with the input
