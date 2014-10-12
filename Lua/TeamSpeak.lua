@@ -6,7 +6,7 @@ if not _G.TS then
 
 	-- [[ TeamSpeak ]] --
 
-	_G.TS = { version = "1.0.5 beta", path = "TeamSpeak/lib/" }
+	_G.TS = { version = "1.0.6 beta", path = "TeamSpeak/lib/" }
 
 	-- TeamSpeak channels
 	TS.channels = { global = "3", channel = "2", private = "1" }
