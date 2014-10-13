@@ -18,7 +18,7 @@
     <ClInclude Include="HookAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TeamSpeak.h">
+    <ClInclude Include="BetterChat.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

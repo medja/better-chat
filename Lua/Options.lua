@@ -1,4 +1,4 @@
-function TS.Options:init()
+function BC.Options:init()
 	-- Colors used for TeamSpeak messages
 	self.colors = {
 		info    = Color("FFD400"),

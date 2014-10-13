@@ -3,7 +3,7 @@
 #include <SDKDDKVer.h>
 #include <windows.h>
 #include "HookAPI.h"
-#include "TeamSpeak.h"
+#include "BetterChat.h"
 #include <ws2tcpip.h>
 #include <atomic>
 #include <list>
@@ -20,7 +20,7 @@ std::atomic<SOCKET> client = NULL;
 std::atomic<lua_State *> state = NULL;
 // Boolean telling the socket thread whether to keep the network loop running
 std::atomic<bool> running = false;
-// Boolean telling if the TeamSpeak mod has been initialized
+// Boolean telling if the TeamSpeak connection has been initialized in Lua
 std::atomic<bool> initialized = true;
 // Queue of commands to be sent to the Lua script
 Concurrency::concurrent_queue<String *> queue;
@@ -208,13 +208,13 @@ int LoadChatMessages(lua_State *L)
 	bool is_private;
 
 	// Get the private message color
-	lua_getglobal(L, "TS");
+	lua_getglobal(L, "BC");
 	lua_getfield(L, -1, "Options");
 	lua_getfield(L, -1, "colors");
 	lua_getfield(L, -1, "private");
 	int private_color = lua_gettop(L);
 
-	// Get the TeamSpeak message formatters
+	// Get the BetterChat message formatters
 	lua_getfield(L, -4, "Formatters");
 
 	// And load each message inside the chat history
@@ -248,7 +248,7 @@ int LoadChatMessages(lua_State *L)
 	return 0;
 }
 
-// Requires the TeamSpeak Lua script and loads it into the game
+// Requires the BetterChat Lua script and loads it into the game
 
 void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 {
@@ -257,12 +257,12 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 	 || strcmp(file, "lib/managers/hud/hudchat") == 0
 	 || strcmp(file, "lib/utils/game_state_machine/gamestatemachine") == 0)
 	{
-		// Check if the global TeamSpeak variable has been defined
-		lua_getglobal(L, "TS");
+		// Check if the global BetterChat variable has been defined
+		lua_getglobal(L, "BC");
 		int type = lua_type(L, -1);
 
 		// Load the main script for the required file
-		if (luaL_loadfile(L, "TeamSpeak/TeamSpeak.lua") == 0)
+		if (luaL_loadfile(L, "BetterChat/BetterChat.lua") == 0)
 		{
 			// And execute it
 			lua_pcall(L, 0, LUA_MULTRET, 0);
@@ -270,8 +270,8 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 			// Make sure to only initalize once for each state
 			if (type != LUA_TNIL) return;
 
-			// Index the global TeamSpeak variable
-			lua_getglobal(L, "TS");
+			// Index the global BetterChat variable
+			lua_getglobal(L, "BC");
 			int index = lua_gettop(L);
 
 			// Load Lua variables
@@ -322,7 +322,7 @@ void WINAPI OnRequire(lua_State *L, LPCSTR file, LPVOID param)
 	}
 }
 
-// Runs on game ticks and sends messages from TeamSpeak to the Lua script
+// Runs on game ticks and sends messages from BetterChat to the Lua script
 
 void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 {
@@ -331,8 +331,8 @@ void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 
 	if (strcmp(type, "update") == 0)
 	{
-		// Index the global TeamSpeak variable
-		lua_getglobal(L, "TS");
+		// Index the global BetterChat variable
+		lua_getglobal(L, "BC");
 		int index = lua_gettop(L);
 
 		// Initialize the Lua part of the mod if a connection
@@ -362,8 +362,8 @@ void WINAPI OnGameTick(lua_State *L, LPCSTR type, LPVOID param)
 	}
 	else if (strcmp(type, "destroy") == 0)
 	{
-		// Index the global TeamSpeak variable
-		lua_getglobal(L, "TS");
+		// Index the global BetterChat variable
+		lua_getglobal(L, "BC");
 		int index = lua_gettop(L);
 
 		// Store Lua variables

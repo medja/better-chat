@@ -2,47 +2,47 @@ if not RequiredScript then return end
 
 -- Initialize
 
-if not _G.TS then
+if not _G.BC then
 
-	-- [[ TeamSpeak ]] --
+	-- [[ BetterChat ]] --
 
-	_G.TS = { version = "1.0.6 beta", path = "TeamSpeak/lib/" }
+	_G.BC = { version = "1.0.6 beta", path = "BetterChat/lib/" }
 
 	-- TeamSpeak channels
-	TS.channels = { global = "3", channel = "2", private = "1" }
+	BC.channels = { global = "3", channel = "2", private = "1" }
 
 	-- TeamSpeak clients
-	TS.clients = {}
-	TS.local_client = {}
+	BC.clients = {}
+	BC.local_client = {}
 
 	-- Queue of private message receivers
-	TS.receivers = {}
+	BC.receivers = {}
 	-- Last private channel client / used for replies
-	TS.last_sender = nil
+	BC.last_sender = nil
 
 	-- In-game / in-lobby state
-	TS.in_game = false
+	BC.in_game = false
 	-- Current game state name
-	TS.game_state = nil
+	BC.game_state = nil
 
 	-- Chat input message and position
-	TS.input = nil
+	BC.input = nil
 
 	-- [[ Parse Options ]] --
 
 	-- Load the options
-	TS.Options = {}
-	dofile("TeamSpeak/Options.lua")
-	TS.Options:init()
+	BC.Options = {}
+	dofile("BetterChat/Options.lua")
+	BC.Options:init()
 
 	-- Make sure chat_history is a number
 	-- Default to 20 when true is and 0 for any non-number
-	if TS.Options.chat_history == true then
-		TS.Options.chat_history = 20
+	if BC.Options.chat_history == true then
+		BC.Options.chat_history = 20
 	else
-		TS.Options.chat_history = tonumber(TS.Options.chat_history)
-		if TS.Options.chat_history == nil or TS.Options.chat_history < 1 then
-			TS.Options.chat_history = 0
+		BC.Options.chat_history = tonumber(BC.Options.chat_history)
+		if BC.Options.chat_history == nil or BC.Options.chat_history < 1 then
+			BC.Options.chat_history = 0
 		end
 	end
 
@@ -50,16 +50,16 @@ if not _G.TS then
 
 	-- Logs the current value with a [TS] prefix
 	-- Works like string.format and can handle tables
-	function TS.log(...)
+	function BC.log(...)
 		local args = {...}
 		for key, value in ipairs(args) do
-			args[key] = TS.to_string(value)
+			args[key] = BC.to_string(value)
 		end
 		io.write("[TS] " .. string.format(unpack(args)) .. "\n")
 	end
 
 	-- Transforms a value into a string
-	function TS.to_string(object)
+	function BC.to_string(object)
 		if type(object) ~= "table" then
 			return tostring(object)
 		end
@@ -70,7 +70,7 @@ if not _G.TS then
 			if value_type == "string" then
 				value = "\"" .. value .. "\""
 			else
-				value = TS.to_string(value)
+				value = BC.to_string(value)
 			end
 			result = result .. ", " .. tostring(key) .. " = " .. value
 		end
@@ -79,7 +79,7 @@ if not _G.TS then
 	end
 
 	-- Displays a message in the in-game chat
-	function TS.show_message(sender, message, color, icon, formatter)
+	function BC.show_message(sender, message, color, icon, formatter)
 		managers.chat:_receive_message(ChatManager.GAME, sender, message, color, icon)
 		if formatter ~= nil then
 			-- Call the formatter for each chat gui that received the message
@@ -90,19 +90,19 @@ if not _G.TS then
 	end
 
 	-- Fetches the client list from TeamSpeak
-	function TS.fetch_info()
+	function BC.fetch_info()
 		-- Check the local clients id and channel
-		TS.send_command("whoami")
-		TS.Queue:push(function(client)
-			TS.local_client.id = client[1].clid
-			TS.local_client.channel = client[1].cid
+		BC.send_command("whoami")
+		BC.Queue:push(function(client)
+			BC.local_client.id = client[1].clid
+			BC.local_client.channel = client[1].cid
 		end)
 		-- Get a list of all the clients
-		TS.send_command("clientlist")
-		TS.Queue:push(function(clients)
-			TS.clients = {}
+		BC.send_command("clientlist")
+		BC.Queue:push(function(clients)
+			BC.clients = {}
 			for _, client in ipairs(clients) do
-				TS.clients[client.clid] = {
+				BC.clients[client.clid] = {
 					name    = client.client_nickname,
 					channel = client.cid }
 			end
@@ -112,33 +112,33 @@ if not _G.TS then
 	-- [[ Formatters ]] --
 
 	-- Formatters used for last second editing of messages in chat guis
-	TS.Formatters = {
-		-- TeamSpeak private message formatter
+	BC.Formatters = {
+		-- Private message formatter
 		private = function(chat)
-			local line = TS.Formatters.get_last_line(chat)
+			local line = BC.Formatters.get_last_line(chat)
 			local text = line:text()
 			line:set_range_color(text:find(" "), text:find(":") - 1, Color("FFFFFF"))
 		end
 	}
 
 	-- Returns the last line / message from the chat
-	function TS.Formatters.get_last_line(chat)
+	function BC.Formatters.get_last_line(chat)
 		return chat._lines[#chat._lines][1]
 	end
 
 	-- [[ Hooks ]] --
 
 	-- Main hook / event system used by this mod
-	TS.Hooks = {}
+	BC.Hooks = {}
 
 	-- Registers a hook for a specific action
-	function TS.Hooks:add(action, func)
+	function BC.Hooks:add(action, func)
 		self[action] = self[action] or {}
 		table.insert(self[action], func)
 	end
 
 	-- Calls each hook for an action
-	function TS.Hooks:call(key, ...)
+	function BC.Hooks:call(key, ...)
 		-- Store the passed arguments and uses them when calling hooks
 		local args, vals = {...}
 		for _, func in ipairs(self[key] or {}) do
@@ -155,15 +155,15 @@ if not _G.TS then
 	-- [[ Queue ]] --
 
 	-- Queue of callbacks used for handling TeamSpeak responses
-	TS.Queue = {}
+	BC.Queue = {}
 
 	-- Enqueues a new callback to the queue
-	function TS.Queue:push(func)
+	function BC.Queue:push(func)
 		table.insert(self, func)
 	end
 
 	-- Dequeues the last callback and calls it
-	function TS.Queue:call(...)
+	function BC.Queue:call(...)
 		-- Make sure we actually have an element in the queue
 		if #self > 0 then
 			table.remove(self, 1)(...)
@@ -173,12 +173,12 @@ if not _G.TS then
 	-- [[ Logic ]] --
 
 	-- Handles incoming TeamSpeak events and responses
-	TS.Hooks:add("TeamSpeak:Receive", function(body)
+	BC.Hooks:add("TeamSpeak:Receive", function(body)
 		-- Parse the packet
-		local command, params = TS.parse(body)
+		local command, params = BC.parse(body)
 		if command == nil then
 			-- Call the first queued callback if the packet is a response
-			TS.Queue:call(params)
+			BC.Queue:call(params)
 			return
 		elseif command == "error" then
 			-- Disregard any error events
@@ -191,89 +191,89 @@ if not _G.TS then
 			local channel = params.targetmode
 			local sender = params.invokerid
 			local message = params.msg
-			TS.Hooks:call("TeamSpeak:ReceiveMessage", channel, sender, message)
+			BC.Hooks:call("TeamSpeak:ReceiveMessage", channel, sender, message)
 		elseif command == "notifycliententerview" then
 			-- If a new client connects add it to the client list
-			TS.clients[params.clid] = { name = params.client_nickname, channel = params.ctid }
-			TS.Hooks:call("TeamSpeak:ClientMove", params.clid, params.ctid)
+			BC.clients[params.clid] = { name = params.client_nickname, channel = params.ctid }
+			BC.Hooks:call("TeamSpeak:ClientMove", params.clid, params.ctid)
 		elseif command == "notifyclientleftview" then
-			TS.Hooks:call("TeamSpeak:ClientMove", params.clid, nil)
+			BC.Hooks:call("TeamSpeak:ClientMove", params.clid, nil)
 			-- If a client disconnects remove it from the client list
-			TS.clients[params.clid] = nil
+			BC.clients[params.clid] = nil
 		elseif command == "notifyclientmoved" then
-			if params.clid == TS.local_client.id then
+			if params.clid == BC.local_client.id then
 				-- If the local client moves, only save the new channel id
-				TS.local_client.channel = params.ctid
-				TS.clients[TS.local_client.id].channel = params.ctid
+				BC.local_client.channel = params.ctid
+				BC.clients[BC.local_client.id].channel = params.ctid
 			else
 				-- Call the hook for everyone else
-				TS.Hooks:call("TeamSpeak:ClientMove", params.clid, params.ctid)
+				BC.Hooks:call("TeamSpeak:ClientMove", params.clid, params.ctid)
 			end
 		end
 	end)
 
 	-- Handles incoming TeamSpeak messages
-	TS.Hooks:add("TeamSpeak:ReceiveMessage", function(channel, sender, message)
+	BC.Hooks:add("TeamSpeak:ReceiveMessage", function(channel, sender, message)
 		-- Get the sender's name
-		local name = TS.clients[sender].name
+		local name = BC.clients[sender].name
 		-- Default to the channel color
-		local color = TS.Options.colors.channel
+		local color = BC.Options.colors.channel
 		-- Don't use a formatter
 		local formatter = nil
-		if channel == TS.channels.global then
+		if channel == BC.channels.global then
 			-- If this is a server message change its color
-			color = TS.Options.colors.global
-		elseif channel == TS.channels.private then
+			color = BC.Options.colors.global
+		elseif channel == BC.channels.private then
 			-- If this is a private message change its color and use a formatter
-			color = TS.Options.colors.private
-			formatter = TS.Formatters.private
+			color = BC.Options.colors.private
+			formatter = BC.Formatters.private
 			-- Prefix the sender's name accordingly
-			if sender == TS.local_client.id then
+			if sender == BC.local_client.id then
 				-- If thias message is sent by the local
 				-- client use the receivers name instead
-				name = "To " .. TS.clients[table.remove(TS.receivers, 1)].name
+				name = "To " .. BC.clients[table.remove(BC.receivers, 1)].name
 			else
 				name = "From " .. name
 				-- Use the sender's id for replies
-				TS.last_sender = sender
+				BC.last_sender = sender
 			end
 		end
 		-- Show the message in chat
-		TS.show_message(name, message, color, nil, formatter)
+		BC.show_message(name, message, color, nil, formatter)
 	end)
 
 	-- Displays messages whenever a client joins / leaves the local client's channel
-	TS.Hooks:add("TeamSpeak:ClientMove", function(id, channel)
+	BC.Hooks:add("TeamSpeak:ClientMove", function(id, channel)
 		-- Only handle remote clients
-		if id == TS.local_client.id then return end
+		if id == BC.local_client.id then return end
 		-- Get the moving client's info
-		local client = TS.clients[id]
+		local client = BC.clients[id]
 		-- If the client is joining the local client's channel
-		if channel ~= nil and channel == TS.local_client.channel then
+		if channel ~= nil and channel == BC.local_client.channel then
 			-- Write entered instead of joined if the client just connected
 			local action = channel == client.channel and "entered" or "joined"
 			local message = string.format("%s %s your channel", client.name, action)
-			TS.show_message("Server", message, TS.Options.colors.info)
+			BC.show_message("Server", message, BC.Options.colors.info)
 		-- If the client is leaving the local client's channel
-		elseif client.channel == TS.local_client.channel then
+		elseif client.channel == BC.local_client.channel then
 			-- Write disconnected instead of left if the client left the server
 			local action = channel == nil and "disconnected from" or "left"
 			local message = string.format("%s %s your channel", client.name, action)
-			TS.show_message("Server", message, TS.Options.colors.info)
+			BC.show_message("Server", message, BC.Options.colors.info)
 		end
 		-- Save the client's new channel
 		client.channel = channel
 	end)
 
 	-- Stores any in-game messages that pass through the chat manager
-	TS.Hooks:add("ChatManager:ReceiveMessage", function(channel, name, message, color, icon)
+	BC.Hooks:add("ChatManager:ReceiveMessage", function(channel, name, message, color, icon)
 		if channel == ChatManager.GAME then
-			TS.save_chat_message(name, message, color, icon)
+			BC.save_chat_message(name, message, color, icon)
 		end
 	end)
 
-	-- Checks messages about to be send for TeamSpeak commands
-	TS.Hooks:add("ChatManager:SendMessage", function(channel, sender, message)
+	-- Checks messages about to be send for BetterChat commands
+	BC.Hooks:add("ChatManager:SendMessage", function(channel, sender, message)
 		-- Check for a command inside the message
 		local command = message:match("^/(%S+)")
 		if command == nil or command == "" then return end
@@ -284,9 +284,9 @@ if not _G.TS then
 		if command == "help" then
 			-- Handles: /help
 			-- Displays a list of all commands
-			TS.show_message("Commands",
+			BC.show_message("Commands",
 				"/global, /help, /list, /msg, /reply, /whisper",
-				TS.Options.colors.info)
+				BC.Options.colors.info)
 			return false
 		elseif command == "whisper" or command == "w" then
 			-- Handles: /whisper <client> <message> | /w <client> <message>
@@ -294,9 +294,9 @@ if not _G.TS then
 
 			-- Display command usage if only the command is passed
 			if message == "" then
-				TS.show_message("Usage",
+				BC.show_message("Usage",
 					"/whisper <client> <message>",
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 				return false
 			end
 
@@ -306,31 +306,31 @@ if not _G.TS then
 
 			-- Get this client's id
 			local id
-			for key, client in pairs(TS.clients) do
+			for key, client in pairs(BC.clients) do
 				if client.name == target then
 					id = key break
 				end
 			end
 			if id == nil then
 				-- Make sure the client exists
-				TS.show_message("Server",
+				BC.show_message("Server",
 					target .. " is not online",
-					TS.Options.colors.info)
-			elseif id == TS.local_client.id then
+					BC.Options.colors.info)
+			elseif id == BC.local_client.id then
 				-- The client isn't the local
-				TS.show_message("Server",
+				BC.show_message("Server",
 					"You cannot send a message to yourself",
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 			else
 				-- Use this id for replies
-				TS.last_sender = id
+				BC.last_sender = id
 				-- Send the private message command
-				TS.send_command(TS.packet("sendtextmessage", {
-					targetmode = TS.channels.private,
+				BC.send_command(BC.packet("sendtextmessage", {
+					targetmode = BC.channels.private,
 					target = id,
 					msg = message
 				}))
-				table.insert(TS.receivers, id)
+				table.insert(BC.receivers, id)
 			end
 			-- Discard this message
 			return false
@@ -340,25 +340,25 @@ if not _G.TS then
 
 			-- Display command usage if only the command is passed
 			if message == "" then
-				TS.show_message("Usage",
+				BC.show_message("Usage",
 					"/reply <message>",
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 				return false
 			end
 
 			-- Check if any private messages have even been received
-			if TS.last_sender == nil then
-				TS.show_message("Server",
+			if BC.last_sender == nil then
+				BC.show_message("Server",
 					"You have no private messages to reply to",
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 			else
 				-- Send the private message command
-				TS.send_command(TS.packet("sendtextmessage", {
-					targetmode = TS.channels.private,
-					target = TS.last_sender,
+				BC.send_command(BC.packet("sendtextmessage", {
+					targetmode = BC.channels.private,
+					target = BC.last_sender,
 					msg = message
 				}))
-				table.insert(TS.receivers, TS.last_sender)
+				table.insert(BC.receivers, BC.last_sender)
 			end
 			-- Discard this message
 			return false
@@ -368,15 +368,15 @@ if not _G.TS then
 
 			-- Display command usage if only the command is passed
 			if message == "" then
-				TS.show_message("Usage",
+				BC.show_message("Usage",
 					"/msg <message>",
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 				return false
 			end
 
 			-- Send the channel message command
-			TS.send_command(TS.packet("sendtextmessage", {
-				targetmode = TS.channels.channel,
+			BC.send_command(BC.packet("sendtextmessage", {
+				targetmode = BC.channels.channel,
 				msg = message
 			}))
 			return false
@@ -386,15 +386,15 @@ if not _G.TS then
 
 			-- Display command usage if only the command is passed
 			if message == "" then
-				TS.show_message("Usage",
+				BC.show_message("Usage",
 					"/global <message>",
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 				return false
 			end
 
 			-- Send the server message command
-			TS.send_command(TS.packet("sendtextmessage", {
-				targetmode = TS.channels.global,
+			BC.send_command(BC.packet("sendtextmessage", {
+				targetmode = BC.channels.global,
 				msg = message
 			}))
 			-- Discard this message
@@ -409,66 +409,66 @@ if not _G.TS then
 			if string.find("channel", message, 0, true) == 1 then
 				-- Find all clients in the channel
 				local clients = {}
-				for _, client in pairs(TS.clients) do
-					if client.channel == TS.local_client.channel then
+				for _, client in pairs(BC.clients) do
+					if client.channel == BC.local_client.channel then
 						table.insert(clients, client.name)
 					end
 				end
 				-- Sort and display them
 				table.sort(clients)
-				TS.show_message("Channel",
+				BC.show_message("Channel",
 					table.concat(clients, ", "),
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 			elseif string.find("server", message, 0, true) == 1 then
 				-- Find all clients on the server
 				local clients = {}
-				for _, client in pairs(TS.clients) do
+				for _, client in pairs(BC.clients) do
 					table.insert(clients, client.name)
 				end
 				-- Sort and display them
 				table.sort(clients)
-				TS.show_message("Server",
+				BC.show_message("Server",
 					table.concat(clients, ", "),
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 			else
 				-- Display command usage if an invalid parameter is passed
-				TS.show_message("Usage",
+				BC.show_message("Usage",
 					"/list [channel|server]",
-					TS.Options.colors.info)
+					BC.Options.colors.info)
 				return false
 			end
 			-- Discard this message
 			return false
 		elseif command == "mute" then
 			-- Handles: /mute <username>
-			TS.log("mute: %s", message)
-			TS.show_message("Info",
+			BC.log("mute: %s", message)
+			BC.show_message("Info",
 				"This command has not been implemented",
-				TS.Options.colors.info)
+				BC.Options.colors.info)
 			return false
 		end
 	end)
 
 	-- Handles game state changes
-	TS.Hooks:add("GameState:Change", function(state)
+	BC.Hooks:add("GameState:Change", function(state)
 		-- Save the game state
-		TS.game_state = state
+		BC.game_state = state
 		-- Check if the player is in-game
 		local in_game = state:find("game") ~= nil
 			and state ~= "ingame_lobby_menu"
 			and state ~= "ingame_waiting_for_players"
 		-- If this has changed trigger an event
-		if TS.in_game ~= in_game then
-			TS.in_game = in_game
-			TS.Hooks:call(in_game and "GameState:EnterGame" or "GameState:LeaveGame")
+		if BC.in_game ~= in_game then
+			BC.in_game = in_game
+			BC.Hooks:call(in_game and "GameState:EnterGame" or "GameState:LeaveGame")
 		end
 	end)
 
 	-- Discards duplicate messages if the chat lag fix is enabled
-	if TS.Options.fix_chat_lag then
+	if BC.Options.fix_chat_lag then
 		-- A map of the last message from each player in the lobby
 		local last_messages = {}
-		TS.Hooks:add("ChatManager:ReceivePeerMessage", function(channel, peer, message)
+		BC.Hooks:add("ChatManager:ReceivePeerMessage", function(channel, peer, message)
 			-- Make sure we only work with game chat messages
 			if channel ~= ChatManager.GAME then return end
 			-- Get the player's id
@@ -488,13 +488,13 @@ if not _G.TS then
 	end
 
 	-- Autocompletes player and TeamSpeak client names in chat
-	if TS.Options.autocomplete then
+	if BC.Options.autocomplete then
 		-- Autocomplete matches and current match index
 		local autocomplete_index = 0
 		local autocomplete_matches = nil
 
 		-- Handles keypresses inside the chat input
-		TS.Hooks:add("ChatGUI:KeyPress", function(key, chat)
+		BC.Hooks:add("ChatGUI:KeyPress", function(key, chat)
 			-- Autocomplete the player / client name if tab is pressed
 			if key == Idstring("tab") then
 				-- Gets the chat input panel, selection start and text
@@ -513,7 +513,7 @@ if not _G.TS then
 					for _, player in ipairs(managers.network:game():all_members()) do
 						table.insert(names, player:peer():name())
 					end
-					for _, client in pairs(TS.clients) do
+					for _, client in pairs(BC.clients) do
 						table.insert(names, client.name)
 					end
 
@@ -595,34 +595,34 @@ if not _G.TS then
 	end
 
 	-- Loads and restores the chat input text and selection between states
-	if TS.Options.restore_chat_input then
+	if BC.Options.restore_chat_input then
 		-- Loads the previous chat input text and cursor position
-		TS.Hooks:add("ChatGUI:Show", function(chat)
-			if TS.input == nil then return end
+		BC.Hooks:add("ChatGUI:Show", function(chat)
+			if BC.input == nil then return end
 			local panel = chat._input_panel:child("input_text")
-			panel:set_text(TS.input.text)
-			panel:set_selection(TS.input.position, TS.input.position)
+			panel:set_text(BC.input.text)
+			panel:set_selection(BC.input.position, BC.input.position)
 		end)
 
 		-- Clears the chat input on enter
-		TS.Hooks:add("ChatGUI:KeyPress", function(key, chat)
+		BC.Hooks:add("ChatGUI:KeyPress", function(key, chat)
 			if key == Idstring("enter") then
-				TS.input = { text = "", position = 0 }
+				BC.input = { text = "", position = 0 }
 			end
 		end)
 
 		-- Saves the current chat input text and cursor position
-		TS.Hooks:add("ChatGUI:KeyRelease", function(key, chat)
+		BC.Hooks:add("ChatGUI:KeyRelease", function(key, chat)
 			if key == Idstring("enter") then return end
 			local panel = chat._input_panel:child("input_text")
-			TS.input = { text = panel:text(), position = panel:selection() }
+			BC.input = { text = panel:text(), position = panel:selection() }
 		end)
 	end
 
 	-- [[ Helpers ]] --
 
 	-- Parses a TeamSpeak packet
-	function TS.parse(packet)
+	function BC.parse(packet)
 		-- Extract the command
 		local command = packet:match("^(%S+)")
 		-- If the packet didn't contain a command set it to nil
@@ -632,7 +632,7 @@ if not _G.TS then
 		for body in packet:gmatch("[^|]+") do
 			parameters = {}
 			for key, value in body:gmatch("(%S+)=(%S+)") do
-				parameters[key] = TS.unescape(value)
+				parameters[key] = BC.unescape(value)
 			end
 			table.insert(list, parameters)
 		end
@@ -640,11 +640,11 @@ if not _G.TS then
 	end
 
 	-- Packages a command and parameters into a TeamSpeak command
-	function TS.packet(command, parameters)
+	function BC.packet(command, parameters)
 		local body = command
 		if parameters ~= nil then
 			for key, value in pairs(parameters) do
-				body = body .. " " .. key .. "=" .. TS.escape(value)
+				body = body .. " " .. key .. "=" .. BC.escape(value)
 			end
 		end
 		return body
@@ -655,12 +655,12 @@ if not _G.TS then
 	local unescape_pairs = { ["\\n"] = "\n", ["\\r"] ="\r", ["\\t"] = " ", ["\\s"] = " " , ["\\\\"] = "\\", ["\\/"] = "/" }
 
 	-- Escapes a TeamSpeak string
-	function TS.escape(value)
+	function BC.escape(value)
 		return tostring(value):gsub(".", escape_pairs)
 	end
 
 	-- Unescapes a string for TeamSpeak
-	function TS.unescape(value)
+	function BC.unescape(value)
 		return value:gsub("\\.", unescape_pairs)
 	end
 
@@ -681,12 +681,12 @@ do
 	if requiredScripts[RequiredScript] ~= nil then
 		-- Load that one script
 		if type(requiredScripts[RequiredScript]) == "string" then
-			dofile(TS.path .. requiredScripts[RequiredScript])
+			dofile(BC.path .. requiredScripts[RequiredScript])
 			return
 		end
 		-- Or multiple of them if a table is used instead of a script name
 		for _, script in ipairs(requiredScripts[RequiredScript]) do
-			dofile(TS.path .. script)
+			dofile(BC.path .. script)
 		end
 	end
 

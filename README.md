@@ -1,4 +1,4 @@
-# TeamSpeak 3 MOD for Payday 2
+# BetterChat mod for Payday 2
 
 Features:
 
